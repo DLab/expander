@@ -1,0 +1,56 @@
+#Ciudades: name density
+%loc: a 100
+%loc: b 10
+%loc: c 1000
+
+#Listas de ciudades, utiles para expandir reglas en subconjuntos de ciudades
+%locl: a-b a b
+%locl: ac a c
+
+#Matrices de adyacencia entre ciudades
+%locm:  DM     a       b       c
+        a     0       1       10
+        c     8       3       0
+        b     4       0       5
+%endMatrix
+
+%locm:
+       TM     a       b       c
+        a     0       2       3
+        b     2       0       5
+        c     3       4       0
+%endMatrix
+
+%expand-signature: a-b S(s~1~2,x)
+
+%expand-signature: all Z(x)
+
+%expand-signature: DM T(x)
+
+%expand-signature: all V(p,n)
+
+%agent: Q(x,y,z)
+%agent: R(r,s,t)
+
+%expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> S(x!1),Z(x!1) @ 10.5
+
+%expand-rule: a-b 'healing(%loc)' S(s~2,x!1),Z(x!1) -> S(x),S(s~1,x) @ 15.1
+
+%expand-rule: all 'infecting(%loc)' S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12) -> Z() @ 1000000
+
+%expand-rule: DM 'diffusion(%org-%dst)' T(x!1),S(x!1) -> T(),S(%) @ 0.5
+
+S(s~1) -> S(s~0) @ 1
+'wake-up' S(s~0) -> S(s~1) @ 1
+
+#in the case of identical density among locs: expand-init: locl density agent
+%expand-init: all 1000 S(s~1,x)
+
+%expand-init: TM 0.4 T()
+
+#specific for a loc
+%init: 1 Z(loc~c)
+
+%expand-obs: all 'name(%loc)' Z(x)
+
+%expand-obs: TM 'anotherName(%org,%dst)' T(x)
