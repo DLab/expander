@@ -12,14 +12,12 @@
         a     0       1       10
         c     8       3       0
         b     4       0       5
-%endMatrix
 
 %locm:
        TM     a       b       c
         a     0       2       3
         b     2       0       5
         c     3       4       0
-%endMatrix
 
 %expand-signature: a-b S(s~1~2,x)
 
@@ -32,13 +30,13 @@
 %agent: Q(x,y,z)
 %agent: R(r,s,t)
 
-%expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> S(x!1),Z(x!1) @ 10.5
+%expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> S(x!1),Z(x!1) @ [log] 'var%loc' * 100 + ( 2 / 'othervar-%loc' )
 
 %expand-rule: a-b 'healing(%loc)' S(s~2,x!1),Z(x!1) -> S(x),S(s~1,x) @ 15.1
 
-%expand-rule: all 'infecting(%loc)' S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12) -> Z() @ 1000000
+%expand-rule: all 'infecting(%loc)' S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12) -> Z() @ [inf]
 
-%expand-rule: DM 'diffusion(%org-%dst)' T(x!1),S(x!1) -> T(),S(%) @ 0.5
+%expand-rule: DM 'diffusion(%org-%dst)' T(x),S(x) -> T(),S(%) @ '%org diffusion %dst' * 0.5
 
 S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
@@ -54,3 +52,9 @@ S(s~1) -> S(s~0) @ 1
 %expand-obs: all 'name(%loc)' Z(x)
 
 %expand-obs: TM 'anotherName(%org,%dst)' T(x)
+
+%expand-obs: all 'halfZ(%loc)' 'name(%loc)' / 2
+
+%expand-mod: all ([T] [mod] 10 = 0) do $ADD 1000 S(s~1,x) until [T] < 10000
+
+%expand-mod: TM ([log] [E] > 100 && [T] < 10000) do 'diffusion(%org-%dst)' := 0
