@@ -124,7 +124,7 @@ def PkaLexer():
     return t
 
   def t_ESIGNATURE(t):
-    r'%expand-signature:'
+    r'%expand-agent:'
     return t
 
   def t_SIGNATURE(t):
@@ -193,7 +193,7 @@ def printLocationMatrix(name, lmatrix):
   print()
 
 def printSignature(agentsignature):
-  print("agent: " + agentsignature["name"] + "(", end='')
+  print("%agent: " + agentsignature["name"] + "(", end='')
   sites = []
   for sitesignature in agentsignature["signature"]:
     sites.append(sitesignature["name"] + "".join(sitesignature["istatelist"]))

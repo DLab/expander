@@ -19,13 +19,13 @@
         b     2       0       5
         c     3       4       0
 
-%expand-signature: a-b S(s~1~2,x)
+%expand-agent: a-b S(s~1~2,x)
 
-%expand-signature: all Z(x)
+%expand-agent: all Z(x)
 
-%expand-signature: DM T(x)
+%expand-agent: DM T(x)
 
-%expand-signature: all V(p,n)
+%expand-agent: all V(p,n)
 
 %agent: Q(x,y,z)
 %agent: R(r,s,t)

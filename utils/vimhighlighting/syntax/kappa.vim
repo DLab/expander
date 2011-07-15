@@ -1,7 +1,6 @@
 :syntax clear
 :syntax case match
 
-"Defining 
 :syntax keyword kappaStatement do until
 :syntax match kappaStatement /^%agent:/
 :syntax match kappaStatement /^%var:/
