@@ -1,0 +1,2 @@
+To get vim highlighting for kappa and prekappa files, just create a .vim directory in you home
+and put there the contents of the current directory (vimhighlighting). Enjoy!
