@@ -1,0 +1,368 @@
+\documentclass[xcolor=dvipsnames]{beamer}
+\usecolortheme[named=Brown]{structure}
+
+\mode<presentation>
+{
+  \usetheme{PaloAlto}
+  \setbeamercovered{dynamic}
+  %\setbeamercovered{invisible}
+}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{textcomp}
+\newenvironment{reference}[2]{% 
+    \begin{textblock*}{\textwidth}(#1,#2) 
+            \footnotesize\it\bgroup\color{red!50!black}}{\egroup\end{textblock*}} 
+\def\int{\hbox{\texttt{\~}}}
+\def\tcb#1{\textcolor{blue}{\ttt{#1}}}
+\def\ttt#1{\texttt{#1}}
+\def\ENU#1{\begin{enumerate}#1\end{enumerate}}
+
+\begin{document}
+
+\title[pre-$\kappa$ expander]
+{pre-kappa expander for $\kappa$ language}
+\author[hurbina]
+{Héctor~Urbina}
+\date
+{\today}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}
+  \tableofcontents
+\end{frame}
+
+\section{Introduction}
+\subsection{What is $\kappa$}
+\begin{frame}
+  \frametitle{What is $\kappa$}
+  \begin{reference}{20mm}{85mm}
+    Krivine et. al.  \emph{Programs as models: Kappa language basics}. Unpublised work.
+  \end{reference} 
+  \begin{flushleft}
+    $\kappa$ is a formal language for defining \structure <1>{agents} as sets of \structure <1>{sites}.
+    \pause
+    \item Sites hold an \structure <2>{internal state} as well as a \structure <2>{binding state}.
+    \pause
+    \item $\kappa$ also enables the expression of \structure <3>{rules} of interaction between agents.
+    \pause
+    \item These rules are \structure <4>{executable}, inducing a stochastic dynamics on a mixture of agents.
+    \pause
+    \item A $\kappa$ model is a collection of rules (with \structure <5>{rate constants}) and an initial mixture of agents on which such rules begin to act.
+  %\footnote Krivine et. al.  \emph{Programs as models: Kappa language basics}. Unpublised work.
+  \end{flushleft}
+\end{frame}
+
+\subsection{$\kappa$ syntax}
+\begin{frame}
+  \frametitle{$\kappa$ Syntax short introduction}
+  \begin{flushleft}
+    Rule in English:
+    \item "Unphosphorilated Site1 of A binds to Site1 of B."
+    \newline \pause
+    \item $\kappa$ Rule:
+    \item A(Site1\int u),B(Site1) $\rightarrow$ A(Site1\int u!1),B(Site1!1)
+    \newline \pause
+    \begin{itemize}
+      \item Agent Names     : an identifier.
+      \item Agent Sites     : an identifier.
+      \item Internal States : \int \textlangle value\textrangle.
+      \item Binding States  : !\textlangle n\textrangle, !\_ or ?.
+    \end{itemize}
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Kappa file structure}
+  \begin{reference}{70mm}{92mm}
+    KaSim reference manual v1.06
+  \end{reference} 
+  \begin{flushleft}
+    {\tiny\ttt{
+    \ENU{
+    \item \tcb{\#\#\#\# Signatures}
+    \item \%agent: A(x,c) \tcb{\# Declaration of agent A}
+    \item \%agent: B(x) \tcb{\# Declaration of B}
+    \item \%agent: C(x1\int u\int p,x2\int u\int p) \tcb{\# Declaration of C with 2 modifiable sites}
+    \item \tcb{\#\#\#\# Rules}
+    \item `a.b' A(x),B(x) -> A(x!1),B(x!1) @ `on\_rate' \tcb{\#A binds B} 
+    \item `a..b' A(x!1),B(x!1) -> A(x),B(x) @ `off\_rate' \tcb{\#AB dissociation} 
+    \item 'ab.c' A(x!\_,c),C(x1\int u) ->A(x!\_,c!2),C(x1\int u!2)  @ `on\_rate' \tcb{\#AB binds C} 
+    \item 'mod x1' C(x1\int u!1),A(c!1) ->C(x1\int p),A(c)  @ `mod\_rate' \tcb{\#AB modifies x1} 
+    \item 'a.c' A(x,c),C(x1\int p,x2\int u) -> A(x,c!1),C(x1\int p,x2\int u!1) @ `on\_rate' \tcb{\#A binds C on x2}
+    \item 'mod x2' A(x,c!1),C(x1\int p,x2\int u!1) -> A(x,c),C(x1\int p,x2\int p) @ `mod\_rate' \tcb{\#A modifies x2} 
+    \item \tcb{\#\#\#\# Variables}
+    \item \%var: `on\_rate' 1.0E-4 \tcb{\# per molecule per second}
+    \item \%var: `off\_rate' 0.1 \tcb{\# per second}
+    \item \%var: `mod\_rate' 1 \tcb{\# per second}
+    \item \%obs: `AB' A(x!x.B)
+    \item \%obs: `Cuu' C(x1\int u,x2\int u)
+    \item \%obs: `Cpu' C(x1\int p,x2\int u)
+    \item \%obs: `Cpp' C(x1\int p,x2\int p)
+    \item \tcb{\#\#\#\# Initial conditions}
+    \item \%init: 1000 A,B
+    \item \%init: 10000 C
+    }
+    }}
+    \end{flushleft}
+%  \begin{center}
+%  \includegraphics[height=7cm]{image/ABC_ka.jpg}
+%  \end{center}
+\end{frame}
+
+\section{Kappa at DLab}
+\subsection{DLab's current work}
+\begin{frame}
+  \frametitle{DLab's current work}
+  \begin{flushleft}
+    DLab members study complex dynamical systems.
+    \newline \pause
+    \item Currently, Cesar Ravello is modeling muscle contration and Felipe Nuñez is simulating massive responses to zombie attacks on human populations, whereas Ricardo Honorato is adapting Model Checking techniques to be used with systems expressed in $\kappa$ language.
+    \newline \pause
+    \item Without intervening the $\kappa$ language, we have reached some interesting levels of abstraction!
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{DLab's current work}
+  \begin{itemize}
+    \item Space-related simulations.
+    \begin{itemize}
+      \item Compartmentalization.
+      \pause
+      \item Diffusion events.
+      \newline
+    \end{itemize}
+    \pause
+    \item Timming control.
+    \begin{itemize}
+      \item Polymer-driven rules to manipulate latency.
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\subsection{Space-related simulations}
+\begin{frame}
+  \frametitle{Compartmentalization}
+  \begin{flushleft} {\scriptsize
+    \textcolor{blue}{\#Signatures} \newline
+    \%agent: A(x,c,loc\int i\int j\int k) \newline
+    \%agent: B(x,loc\int i\int j\int k) \pause
+    \item \textcolor{blue}{\#Rules} \newline
+    \textcolor{blue}{\#A binds B} \newline
+    A(x,loc\int i),B(x,loc\int i) $\rightarrow$ A(x!1,loc\int i),B(x!1,loc\int i) @ 'on\_rate' \newline
+    A(x,loc\int j),B(x,loc\int j) $\rightarrow$ A(x!1,loc\int j),B(x!1,loc\int j) @ 'on\_rate' \newline
+    A(x,loc\int k),B(x,loc\int k) $\rightarrow$ A(x!1,loc\int k),B(x!1,loc\int k) @ 'on\_rate' \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Compartmentalization}
+  \begin{flushleft} {\scriptsize
+    \textcolor{blue}{\#Locations i, j and k have different volumen/area!} \newline \pause
+    \textcolor{blue}{\#Signatures} \newline
+    \%agent: A(x,c,loc\int i\int j\int k) \newline
+    \%agent: B(x,loc\int i\int j\int k)
+    \item \textcolor{blue}{\#Rules} \newline
+    \textcolor{blue}{\#A binds B} \newline
+    A(x,loc\int i),B(x,loc\int i) $\rightarrow$ A(x!1,loc\int i),B(x!1,loc\int i) @ 'on\_rate\_loc(i)' \newline
+    A(x,loc\int j),B(x,loc\int j) $\rightarrow$ A(x!1,loc\int j),B(X!1,loc\int j) @ 'on\_rate\_loc(j)' \newline
+    A(x,loc\int k),B(x,loc\int k) $\rightarrow$ A(x!1,loc\int k),B(X!1,loc\int k) @ 'on\_rate\_loc(k)' \newline \pause
+    \textcolor{blue}{\#AB dissociation} \newline
+    A(x!1,loc\int i),B(x!1,loc\int i) $\rightarrow$ A(x,loc\int i),B(x,loc\int i) @ 'off\_rate' \newline
+    A(x!1,loc\int j),B(x!1,loc\int j) $\rightarrow$ A(x,loc\int j),B(x,loc\int j) @ 'off\_rate' \newline
+    A(x!1,loc\int k),B(x!1,loc\int k) $\rightarrow$ A(x,loc\int k),B(x,loc\int k) @ 'off\_rate' \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Diffusion events}
+  \begin{flushleft}
+    \textcolor{blue}{\#Signatures} \newline
+    \%agent: A(x,c,loc\int i\int j\int k) \newline
+    \%agent: B(x,loc\int i\int j\int k) \newline
+    \%agent: \structure <1>{T(s,org\int i\int j\int k,dst\int i\int j\int k)}
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Diffusion events}
+  \begin{flushleft} {\scriptsize
+    \textcolor{blue}{\#Rules} \newline
+    \textcolor{blue}{\#A diffusions} \newline
+    A(loc\int i,x,c),T(org\int i,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int i,dst\int j) @ 'Adiff\_ij' \newline
+    A(loc\int i,x,c),T(org\int i,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int i,dst\int k) @ 'Adiff\_ik' \newline
+    A(loc\int j,x,c),T(org\int j,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int j,dst\int i) @ 'Adiff\_ji' \newline
+    A(loc\int j,x,c),T(org\int j,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int j,dst\int k) @ 'Adiff\_jk' \newline
+    A(loc\int k,x,c),T(org\int k,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int k,dst\int i) @ 'Adiff\_ki' \newline
+    A(loc\int k,x,c),T(org\int k,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int k,dst\int j) @ 'Adiff\_kj' \newline }
+  \end{flushleft}
+\end{frame}
+
+\subsection{Timming control}
+\begin{frame}
+  \frametitle{polymer-driven rules}
+  \begin{flushleft}
+    \textcolor{blue}{\#Signatures} \newline
+    \%agent: S(x) \newline
+    \%agent: Z() \newline
+    \%agent: V(p,n) \pause
+    \item \textcolor{blue}{\#Rules} \newline
+    'Infection' Z(),S(x) $\rightarrow$ Z(),S(x!1),V(p!1,n) @ 'infection\_rate' \newline \pause
+    'Polymerization' V(n) $\rightarrow$ V(n!1),V(p!1,n) @ 'polymer\_rate' \newline \pause
+    'Expression' S(x!1),V(p!1,n!2),V(p!2,n!3),V(p!3,n!4), \textbackslash \newline
+    V(p!4,n!5),V(p!5,n!6),V(p!6,n!7),V(p!7,n!8),V(p!8,n!9), \textbackslash \newline
+    V(p!9,n!10),V(p!10,n) $\rightarrow$ Z() @ [inf]
+  \end{flushleft}
+\end{frame}
+
+\subsection{pre-Kappa expander}
+\begin{frame}
+  \frametitle{pre-Kappa expander}
+  \begin{flushleft}
+    A Python (V2) script that takes as input a (built in-house) \structure <1>{pre-$\kappa$} file and outputs a kappa file which can subsequently be used with KaSim. \pause
+    \item This is done using \structure <2>{Lexer \& Parser} techniques, available in Python through ply library. \pause
+    \item It facilitates $\kappa$ abstraction while reducing error-proneness. \pause
+    \item Freely available on \structure <4>{https://github.com/ajendrex/expander/}
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Locations}
+  \begin{flushleft}
+    \textcolor{blue}{\#Locations} \newline
+    \%loc: i 100 \newline
+    \%loc: j 1000 \newline
+    \%loc: k 500 \newline \pause
+    \textcolor{blue}{\#Location list} \newline
+    \%locl: all i j k \newline \pause
+    \textcolor{blue}{\#Signatures}
+    \item \structure <3>{\%expand-agent: all} A(x,c) \newline
+    \structure <3>{\%expand-agent: all} B(x) \pause
+    \item \structure <4>{gives:} \newline
+    \%agent: A(x,c,loc\int i\int j\int k) \newline
+    \%agent: B(x,loc\int i\int j\int k) \newline
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Locations}
+  \begin{flushleft} {\small
+    \textcolor{blue}{\#Locations} \newline
+    \%loc: i 100 \newline
+    \%loc: j 1000 \newline
+    \%loc: k 500 \newline
+    \textcolor{blue}{\#Location list} \newline
+    \%locl: all i j k \newline
+    \textcolor{blue}{\#Initializations (expand if densities are equal)}
+    \item \structure <1>{\%expand-init: all ADensity} A(x,c) \newline
+    \structure <1>{\%expand-init: all BDensity} B(x) \pause
+    \item \structure <2>{gives:} \newline
+    \%init: ADensity * 100 A(x,c,loc\int i) \newline
+    \%init: ADensity * 1000 A(x,c,loc\int j) \newline
+    \%init: ADensity * 500 A(x,c,loc\int k) \newline
+    \%init: BDensity * 100 B(x,loc\int i) \newline
+    \%init: BDensity * 1000 B(x,loc\int j) \newline
+    \%init: BDensity * 500 B(x,loc\int k) \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Locations}
+  \begin{reference}{20mm}{85mm}
+    Krivine et. al.  \emph{Programs as models: Execution}. Unpublised work.
+  \end{reference} 
+  \begin{flushleft}
+    A bimolecular stochastic rate constant $\gamma$, expressed in $s^{-1} molecule^{-1}$, is related to its deterministic counterpart
+    $k$, expressed in $s^{-1} M^{-1}$ as
+    \begin{equation}
+      \gamma = \frac{k}{AV},
+    \end{equation}
+    where A is Avogadro's number.
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Locations}
+  \begin{flushleft} {\scriptsize
+    \textcolor{blue}{\#Locations} \newline
+    \%loc: i 100 \newline
+    \%loc: j 1000 \newline
+    \%loc: k 500 \newline
+    \textcolor{blue}{\#Location list} \newline
+    \%locl: all i j k \newline \pause
+    \textcolor{blue}{\#A binds B} \newline
+    \%expand-rule: all A(x),B(x) $\rightarrow$ A(x!1),B(x!1) @ 'on\_base\_rate' \pause
+    \item \structure <3>{gives:} \newline
+    A(x,loc\int i),B(x,loc\int i) $\rightarrow$ A(x!1,loc\int i),B(x!1,loc\int i) @ 'on\_base\_rate' / 100 \newline
+    A(x,loc\int j),B(x,loc\int j) $\rightarrow$ A(x!1,loc\int j),B(x!1,loc\int j) @ 'on\_base\_rate' / 1000 \newline
+    A(x,loc\int k),B(x,loc\int k) $\rightarrow$ A(x!1,loc\int k),B(x!1,loc\int k) @ 'on\_base\_rate' / 500 \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Location Matrices}
+  \begin{flushleft} {\scriptsize
+    ... \newline
+    \textcolor{blue}{\#Location matrices} \newline
+    \structure <1>{\%locm: \newline
+      \begin{tabular}{ l c c c }
+        TM & i & j & k \\
+        i & 0 & 0.5 & 1.5 \\ 
+        j & 2.0 & 0 & 1.8 \\
+        k & 1.0 & 1.1 & 0 \\
+      \end{tabular} } \pause
+    \item \textcolor{blue}{\#A diffusions} \newline
+    \structure <2>{\%expand-rule: TM} A(x,c),T() $\rightarrow$ A(\structure <2>{\%},x,c),T() @ 1 \pause
+    \item \structure <3>{gives:} \newline
+    A(loc\int i,x,c),T(org\int i,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int i,dst\int j) @ (1 * 0.5) / 100 \newline
+    A(loc\int i,x,c),T(org\int i,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int i,dst\int k) @ (1 * 1.5) / 100 \newline
+    A(loc\int j,x,c),T(org\int j,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int j,dst\int i) @ (1 * 2.0) / 1000 \newline
+    A(loc\int j,x,c),T(org\int j,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int j,dst\int k) @ (1 * 1.8) / 1000 \newline
+    A(loc\int k,x,c),T(org\int k,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int k,dst\int i) @ (1 * 1.0) / 500 \newline
+    A(loc\int k,x,c),T(org\int k,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int k,dst\int j) @ (1 * 1.1) / 500 \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Location Matrices}
+  \begin{flushleft} {\scriptsize
+    ... \newline
+    \textcolor{blue}{\#Location matrices} \newline
+    \%locm: \newline
+      \begin{tabular}{ l c c c }
+        TM & i & j & k \\
+        i & 0 & 0.5 & 1.5 \\ 
+        j & 2.0 & 0 & 1.8 \\
+        k & 1.0 & 1.1 & 0 \\
+      \end{tabular}
+    \item \textcolor{blue}{\#Observing transporters} \newline
+    \%expand-obs: TM 'Transporter(\structure <1>{\%org},\structure <1>{\%dst})' T() \pause
+    \item \structure <2>{gives:} \newline
+    \%obs: 'Transporter(i,j)' T(org\int i,dst\int j) \newline
+    \%obs: 'Transporter(i,k)' T(org\int i,dst\int k) \newline
+    \%obs: 'Transporter(j,i)' T(org\int j,dst\int i) \newline
+    \%obs: 'Transporter(j,k)' T(org\int j,dst\int k) \newline
+    \%obs: 'Transporter(k,i)' T(org\int k,dst\int i) \newline
+    \%obs: 'Transporter(k,j)' T(org\int k,dst\int j) \newline }
+  \end{flushleft}
+\end{frame}
+
+\begin{frame}
+  \frametitle{pre-Kappa syntax: Chains}
+  \begin{flushleft} {\small
+    \textcolor{blue}{\#Rules} \newline
+    'Expression' S(x!1),V(p!1,\structure <1>{n!2}),V(\structure <1>{p!2},n!3),\structure <1>{...},V(\structure <1>{p!10},n) $\rightarrow$ Z() @ [inf] } \newline \pause 
+    \item \structure <2>{gives:} \newline 
+    'Expression' S(x!1),V(p!1,n!2),V(p!2,n!3),V(p!3,n!4), \textbackslash \newline
+    V(p!4,n!5),V(p!5,n!6),V(p!6,n!7),V(p!7,n!8),V(p!8,n!9), \textbackslash \newline
+    V(p!9,n!10),V(p!10,n) $\rightarrow$ Z() @ [inf]
+  \end{flushleft}
+\end{frame}
+
+\end{document}
