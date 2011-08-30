@@ -1,0 +1,6 @@
+The expander.py script has the following requiriments:
+
+- python 3.0 or above
+- ply library (for python 3.0)
+
+For a better understanding of pre-kappa syntax, please check doc folder.
