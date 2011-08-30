@@ -1,4 +1,4 @@
-The expander.py script has the following requiriments:
+The expander.py script has the following requirements:
 
 - python 3.0 or above
 - ply library (for python 3.0)
