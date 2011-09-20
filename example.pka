@@ -1,4 +1,4 @@
-#Ciudades: name density
+#Ciudades: name n1 n2 n3 ...
 %loc: a 100 10 1
 %loc: b 300 30 3
 %loc: c 900 90 9
@@ -36,7 +36,7 @@
 
 %expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
 
-%expand-rule: DM 'diffusion(%org-%dst)' T(x),S(x) -> T(),S(%) @ '%orgdiffusion%dst' * %cell - %org[0] + $dst[1]
+%expand-rule: DM 'diffusion(%org-%dst)' T(x),S(x) -> T(),S(%) @ '%orgdiffusion%dst' * %cell - %org[0] + %dst[1]
 
 S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
