@@ -2,6 +2,10 @@
 
 :syntax match prekappaLocfield /%\([^(]*)\)\@=/
 :syntax match prekappaKeyword /%\(loc\|org\|dst\)/ contained
+:syntax match prekappaLabel /%\(loc\|org\|dst\)\(\[\)\@=/
+:syntax match prekappaLabel /%cell/
+:syntax match prekappaLeftBracket /\(%\(loc\|org\|dst\)\)\@<=\[/
+:syntax match prekappaRightBracket /\(%\(loc\|org\|dst\)\[\d\+\)\@<=\]/
 :syntax match prekappaStatement /^%loc:/
 :syntax match prekappaStatement /^%locl:/
 :syntax match prekappaStatement /^%locm:/
@@ -19,3 +23,6 @@
 :highlight link prekappaString kappaString 
 :highlight link prekappaKeyword kappaSymbol
 :highlight link prekappaLocfield kappaStatement
+:highlight link prekappaLabel kappaSymbol
+:highlight link prekappaLeftBracket kappaSymbol
+:highlight link prekappaRightBracket kappaSymbol

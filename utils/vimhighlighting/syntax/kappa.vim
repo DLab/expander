@@ -1,6 +1,7 @@
 :syntax clear
 :syntax case match
 
+"Defining 
 :syntax keyword kappaStatement do until
 :syntax match kappaStatement /^%agent:/
 :syntax match kappaStatement /^%var:/
@@ -19,9 +20,13 @@
 
 :syntax match kappaString /'[^']\+'/
 
+"A kappaAgent is: id followed by '(', .id -as in A(x!x.B)-, or ...
 :syntax match kappaAgent /[a-zA-Z0-9][a-zA-Z0-9_\-]*\((\)\@=\|\.[a-zA-Z0-9][a-zA-Z0-9_\-]*\([^(]*)\)\@=\|\.\.\./
+"A kappaAgent also is: ( preceded by id
 :syntax match kappaAgent /\([a-zA-Z0-9_\-]\)\@<=(/
+"A kappaAgent also is: ) preceded by id(<interface>
 :syntax match kappaAgent /\([a-zA-Z0-9_\-]([^)]*\)\@<=)/
+"Commas within interface are also colored as kappaAgents
 :syntax match kappaAgent /,\([^(]\+)\)\@=/
 
 :syntax match kappaNumber /\<[-+]\?\d\+\(\.\d*\)\?\([eE][-+]\?\d\+\)\?\>\|\[\(E\|T\|inf\|pi\|emax\|tmax\|true\|false\)\]/
