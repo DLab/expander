@@ -6,6 +6,8 @@ import sys
 import collections
 import functools
 import copy
+import math
+import re
 
 locations = collections.OrderedDict()
 locationLists = {}
@@ -13,58 +15,72 @@ locationMatrices = {}
 signatures = {}
 nullInstruction = {}
 
-#List of token names required by ply.lex
-tokens = ( 'LOC',
-           'LOCL',
-           'LOCM',
-           'ESIGNATURE',
-           'SIGNATURE',
-           'ERULE',
-           'EINIT',
-           'INIT',
-           'EOBS',
-           'OBS',
-           'EVAR',
-           'VAR',
-           'EMOD',
-           'MOD',
-           'ID',
-           'LABEL',
-           'NUMBER',
-           'ISTATE',
-           'LSTATE',
-           'COMMA',
-           'ELLIPSIS',
-           'AT',
-           'RARROW',
-           'OPERATOR',
-           'FUNCTION',
-           'LPAREN',
-           'RPAREN',
-           'LOCFIELD',
-           'DO',
-           'UNTIL',
-           'SET',
-           'AND',
-           'OR',
-           'DELETE',
-           'INTRO',
-           'SNAPSHOT',
-           'STOP',
-           'EVENT',
-           'TIME',
-           'INFINITY',
-           'PI',
-           'EMAX',
-           'TMAX',
-           'RELATOR',
-           'BOOL',
-           'NOT',
-           'COMMENT',
-           'NEWLINE'
-           )
+pkaTokens = ('LOC',
+             'LOCL',
+             'LOCM',
+             'ESIGNATURE',
+             'SIGNATURE',
+             'ERULE',
+             'EINIT',
+             'INIT',
+             'EOBS',
+             'OBS',
+             'EVAR',
+             'VAR',
+             'EMOD',
+             'MOD',
+             'ID',
+             'LABEL',
+             'NUMBER',
+             'ISTATE',
+             'LSTATE',
+             'COMMA',
+             'ELLIPSIS',
+             'AT',
+             'RARROW',
+             'OPERATOR',
+             'FUNCTION',
+             'LPAREN',
+             'RPAREN',
+             'DIFFTARGET',
+             'PKVARIABLE',
+             'DO',
+             'UNTIL',
+             'SET',
+             'AND',
+             'OR',
+             'DELETE',
+             'INTRO',
+             'SNAPSHOT',
+             'STOP',
+             'EVENT',
+             'TIME',
+             'INFINITY',
+             'PI',
+             'EMAX',
+             'TMAX',
+             'RELATOR',
+             'BOOL',
+             'NOT',
+             'COMMENT',
+             'NEWLINE'
+             )
+  
+# Error rule for syntax errors
+def p_error(p):
+  print("Syntax error in input! " + str(p), file=sys.stderr)
+  sys.exit(1)
+  
+def t_error(t):
+  print("Illegal character \'", t.value[0], "\'", file=sys.stderr)
+  t.lexer.skip(1)
+  
+t_ignore = ' \t'
 
 def PkaLexer():
+  #List of token names required by ply.lex
+  tokens = pkaTokens
+
   t_ID = r'[A-Za-z0-9][A-Za-z0-9_\-]*'
   t_LABEL = r'\'[^\']+\''
   t_ISTATE = r'~[A-Za-z0-9_]+'
@@ -88,7 +104,8 @@ def PkaLexer():
   t_TMAX = r'\[tmax\]'
   t_LPAREN = r'\('
   t_RPAREN = r'\)'
-  t_LOCFIELD = r'%org|%dst|%loc|%'
+  t_PKVARIABLE = r'%((loc|org|dst)\[\d+\]|cell)'
+  t_DIFFTARGET = r'%'
   t_RELATOR = r'>|<|='
   t_OPERATOR = r'\*|/|\+|-|\^|\[mod\]'
   t_FUNCTION = r'\[(exp|sin|cos|tan|int|sqrt|log)\]'
@@ -172,472 +189,16 @@ def PkaLexer():
     t.lexer.lineno += 1
     return t
 
-  t_ignore = ' \t'
-
-  def t_error(t):
-    print("Illegal character \'", t.value[0], "\'")
-    t.lexer.skip(1)
-
   return lex.lex()
 
-def printLocation(name, area):
-  print("# defined location " + name + " with area = " + area)
+def PkaParser():
+  tokens = pkaTokens
 
-def printLocationList(name, llist):
-  print("# defined location list " + name + " containing: " + ",".join(llist))
+  precedence = (
+    ('left', 'COMMA'),
+    ('right', 'ID'),
+  )
 
-def printLocationMatrix(name, lmatrix):
-  print("# defined location matrix " + name + ":")
-  for mrow in lmatrix:
-    print("#\t" + "\t".join(map(str, mrow)))
-  print()
-
-def printSignature(agentsignature):
-  print("%agent: " + agentsignature["name"] + "(", end='')
-  sites = []
-  for sitesignature in agentsignature["signature"]:
-    sites.append(sitesignature["name"] + "".join(sitesignature["istatelist"]))
-  print(",".join(sites) + ")")
-
-def siteToString(site):
-  return site["name"] + site["lstate"] + site["istate"]
-
-def agentToString(agent):
-  s = agent["name"] + "("
-  s += ",".join(map(siteToString, agent["interface"]))
-  return s + ")"
-
-def expressionToString(expression):
-  return ",".join(map(agentToString, expression))
-
-def effectToString(effect):
-  if (effect["keyword"] == "$ADD" or effect["keyword"] == "$DEL"):
-    return " ".join([effect["keyword"],effect["algexp"],expressionToString(effect["expression"])])
-  elif (effect["keyword"] == "$SNAPSHOT" or effect["keyword"] == "$STOP"):
-    return effect["keyword"]
-  else:
-    return " ".join([effect["rule"],effect["keyword"],effect["rate"]])
-  
-def printRule(rule):
-  if (rule != nullInstruction):
-    print(rule["label"] + " " + expressionToString(rule["lhs"]) + " -> " + expressionToString(rule["rhs"]) + " @ " + rule["rate"])
-
-def printInit(init):
-  if (init != nullInstruction):
-    print("%init: " + str(init["n"]) + " " + agentToString(init["agent"]))
-
-def printObs(obs):
-  if (obs != nullInstruction):
-    print("%obs: " + obs["label"] + " " + expressionToString(obs["expression"]))
-
-def printObs2(obs):
-  if (obs != nullInstruction):
-    print("%obs: " + obs["label"] + " " + obs["algexp"])
-
-def printMod(mod):
-  if (mod != nullInstruction):
-    print(" ".join(["%mod:",mod["boolexp"],"do",effectToString(mod["effect"])]), end="")
-    if (mod["endexp"] != ""):
-      print(" " + "until" + " " + mod["endexp"], end="")
-    print()
-
-def esignature(sign, domain):
-  if (domain[0].__class__ == "".__class__): #if the first element is a string, domain is a list of locs
-    locsignature = {}
-    locsignature["name"] = "loc"
-    locsignature["istatelist"] = []
-    for loc in domain:
-      locsignature["istatelist"].append("~" + loc)
-    sign["signature"].append(locsignature)
-  else: #otherwise the first element is a tuple, so the domain is a matrix of locs
-    orgsignature = {}
-    orgsignature["name"] = "org"
-    orgsignature["istatelist"] = []
-    dstsignature = {}
-    dstsignature["name"] = "dst"
-    dstsignature["istatelist"] = []
-    for (org,dst,n) in domain:
-      if ("~" + org not in orgsignature["istatelist"]):#This ensures that the input order is maintained
-        orgsignature["istatelist"].append("~" + org)
-      if ("~" + dst not in dstsignature["istatelist"]):
-        dstsignature["istatelist"].append("~" + dst)
-    sign["signature"].append(orgsignature)
-    sign["signature"].append(dstsignature)
-  printSignature(sign)
-
-def isBimol(expression):
-  def searchLink(linkList, link, i):
-    for agent in range(0,len(linkList)):
-      if (agent != i):
-        for l in linkList[agent]:
-          if (link == l):
-            return agent
-    print("Error in links of a rule")
-    sys.exit(1)
-
-  def isConnected(graph):
-    visited = []
-    for i in range(0,len(graph)):
-      visited.append(False)
-    def isConnectedIter(i):
-      visited[i] = True
-      if (all(n == True for n in visited)):
-        return True
-      for n in graph[i]:
-        if (not visited[n]):
-          if (isConnectedIter(n)):
-            return True
-      return False
-    return isConnectedIter(0)
-
-  linkList = []
-  i = 0
-  for agent in expression:
-    linkList.append([])
-    for site in agent["interface"]:
-      link = site["lstate"]
-      if (link != "!?" and link != "!_" and link != ""):
-        linkList[i].append(link)
-    i += 1
-  connections = []
-  i = 0
-  for agent in linkList:
-    connections.append([])
-    for link in agent:
-      connections[i].append(searchLink(linkList, link, i))
-  return not isConnected(connections)
-
-def agentHasSite(agentName, siteName):
-  signature = signatures[agentName]
-  for site in signature:
-    if (site["name"] == siteName):
-      return True
-  return False
-
-def insertSite(siteName, agent, istate):
-  if (agentHasSite(agent["name"], siteName)):
-    site = {}
-    site["name"] = siteName
-    site["istate"] = "~" + istate
-    site["lstate"] = ""
-    agent["interface"].append(site)
-
-def insertLocInAgent(agent, loc):
-  insertSite("loc", agent, loc)
-
-def insertOrgInAgent(agent, org):
-  insertSite("org", agent, org)
-  insertSite("loc", agent, org)
-
-def insertDstInAgent(agent, dst):
-  insertSite("dst", agent, dst)
-
-def insertLocInComplex(expression, loc):
-  for agent in expression:
-    insertLocInAgent(agent, loc)
-
-def insertOrgInComplex(expression, org):
-  for agent in expression:
-    insertOrgInAgent(agent, org)
-
-def insertDstInComplex(expression, dst):
-  for agent in expression:
-    insertDstInAgent(agent, dst)
-
-def insertSiteInEffect(siteName, effect, istate):
-  if (effect["keyword"] == "$ADD" or effect["keyword"] == "$DEL"):
-    effect["algexp"] = effect["algexp"].replace("%" + siteName, istate)
-    for agent in effect["expression"]:
-      insertSite(siteName, agent, istate)
-  else:
-    for key in effect.keys():
-      effect[key] = effect[key].replace("%" + siteName, istate)
-
-def insertLocInEffect(effect, loc):
-  insertSiteInEffect("loc", effect, loc)
-
-def insertOrgInEffect(effect, org):
-  insertSiteInEffect("org", effect, org)
-
-def insertDstInEffect(agent, dst):
-  insertSiteInEffect("dst", agent, dst)
-
-def interfaceHasSite(interface, siteName):
-  for site in interface:
-    if (site["name"] == siteName):
-      return True
-  return False
-
-def diffuseAgent(interface, dst):
-  i = 0
-  for site in interface:
-    if (site["name"] == "loc"):
-      site["istate"] = "~" + dst
-    elif (site["name"] == "%"):
-      p = i
-    i += 1
-  interface.pop(p)
-
-def erule(rule, domain):
-  def makeDiffusions(expression, dst):
-    for agent in expression:
-      if(interfaceHasSite(agent["interface"], "%")):
-        diffuseAgent(agent["interface"], dst)
-
-  def encloseAndSuffix(prefix, suffix):
-    return "(" + prefix + ") " + suffix
-
-  def mixRuleWithLoc(loc):
-    newRule = copy.deepcopy(rule)
-    newRule["label"] = newRule["label"].replace("%loc",loc)
-    insertLocInComplex(newRule["lhs"],loc)
-    insertLocInComplex(newRule["rhs"],loc)
-    newRule["rate"] = newRule["rate"].replace("%loc", loc)
-    if (isBimol(rule["lhs"])):
-      newRule["rate"] = encloseAndSuffix(newRule["rate"], "/ " + str(locations[loc]))
-    return newRule
-  
-  def mixRuleWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newRule = copy.deepcopy(rule)
-      newRule["label"] = newRule["label"].replace("%org",org)
-      newRule["label"] = newRule["label"].replace("%dst",dst)
-      insertOrgInComplex(newRule["lhs"],org)
-      insertOrgInComplex(newRule["rhs"],org)
-      insertDstInComplex(newRule["lhs"],dst)
-      insertDstInComplex(newRule["rhs"],dst)
-      newRule["rate"] = newRule["rate"].replace("%org", org)
-      newRule["rate"] = newRule["rate"].replace("%dst", dst)
-      newRule["rate"] = encloseAndSuffix(newRule["rate"], "* " + str(r))
-      if (isBimol(rule["lhs"])):
-        newRule["rate"] = encloseAndSuffix(newRule["rate"], "/ " + str(locations[org]))
-#Is the following necessary?
-      makeDiffusions(newRule["rhs"], dst)
-      return newRule
-    else:
-      return nullInstruction
-
-  ruleBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    ruleBuilder = mixRuleWithLoc
-  else: #the type is tuple, it is a matrix
-    ruleBuilder = mixRuleWithOrgDst
-  for r in map(ruleBuilder, domain):
-    printRule(r)
-
-def einit(init, domain):
-  def mixInitWithLoc(loc):
-    newInit = copy.deepcopy(init)
-    insertLocInAgent(newInit["agent"], loc)
-    newInit["n"] *= locations[loc]
-    return newInit
-  
-  def mixInitWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newInit = copy.deepcopy(init)
-      insertOrgInAgent(newInit["agent"],org)
-      insertDstInAgent(newInit["agent"],dst)
-      newInit["n"] *= r * locations[org]
-      return newInit
-    else:
-      return nullInstruction
-
-  initBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    initBuilder = mixInitWithLoc
-  else: #the type is tuple, it is a matrix
-    initBuilder = mixInitWithOrgDst
-  for i in map(initBuilder, domain):
-    printInit(i)
-
-def eobs(obs, domain):
-  def mixObsWithLoc(loc):
-    newObs = copy.deepcopy(obs)
-    newObs["label"] = newObs["label"].replace("%loc",loc)
-    insertLocInComplex(newObs["expression"],loc)
-    return newObs
-  
-  def mixObsWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newObs = copy.deepcopy(obs)
-      newObs["label"] = newObs["label"].replace("%org",org)
-      newObs["label"] = newObs["label"].replace("%dst",dst)
-      insertOrgInComplex(newObs["expression"],org)
-      insertDstInComplex(newObs["expression"],dst)
-      return newObs
-    else:
-      return nullInstruction
-
-  obsBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    obsBuilder = mixObsWithLoc
-  else: #the type is tuple, it is a matrix
-    obsBuilder = mixObsWithOrgDst
-  for r in map(obsBuilder, domain):
-    printObs(r)
-
-def eobs2(obs, domain):
-  def mixObsWithLoc(loc):
-    newObs = copy.deepcopy(obs)
-    newObs["label"] = newObs["label"].replace("%loc",loc)
-    newObs["algexp"] = newObs["algexp"].replace("%loc",loc)
-    return newObs
-  
-  def mixObsWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newObs = copy.deepcopy(obs)
-      newObs["label"] = newObs["label"].replace("%org",org)
-      newObs["label"] = newObs["label"].replace("%dst",dst)
-      newObs["algexp"] = newObs["algexp"].replace("%org",org)
-      newObs["algexp"] = newObs["algexp"].replace("%dst",dst)
-      return newObs
-    else:
-      return nullInstruction
-
-  obsBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    obsBuilder = mixObsWithLoc
-  else: #the type is tuple, it is a matrix
-    obsBuilder = mixObsWithOrgDst
-  for r in map(obsBuilder, domain):
-    printObs2(r)
-
-def evar(var, domain):
-  def mixVarWithLoc(loc):
-    newVar = copy.deepcopy(var)
-    newVar["label"] = newVar["label"].replace("%loc",loc)
-    insertLocInComplex(newVar["expression"],loc)
-    return newVar
-  
-  def mixVarWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newVar = copy.deepcopy(var)
-      newVar["label"] = newVar["label"].replace("%org",org)
-      newVar["label"] = newVar["label"].replace("%dst",dst)
-      insertOrgInComplex(newVar["expression"],org)
-      insertDstInComplex(newVar["expression"],dst)
-      return newVar
-    else:
-      return nullInstruction
-
-  varBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    varBuilder = mixVarWithLoc
-  else: #the type is tuple, it is a matrix
-    varBuilder = mixVarWithOrgDst
-  for r in map(varBuilder, domain):
-    printVar(r)
-
-def evar2(var, domain):
-  def mixVarWithLoc(loc):
-    newVar = copy.deepcopy(var)
-    newVar["label"] = newVar["label"].replace("%loc",loc)
-    newVar["algexp"] = newVar["algexp"].replace("%loc",loc)
-    return newVar
-  
-  def mixVarWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newVar = copy.deepcopy(var)
-      newVar["label"] = newVar["label"].replace("%org",org)
-      newVar["label"] = newVar["label"].replace("%dst",dst)
-      newVar["algexp"] = newVar["algexp"].replace("%org",org)
-      newVar["algexp"] = newVar["algexp"].replace("%dst",dst)
-      return newVar
-    else:
-      return nullInstruction
-
-  varBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    varBuilder = mixVarWithLoc
-  else: #the type is tuple, it is a matrix
-    varBuilder = mixVarWithOrgDst
-  for r in map(varBuilder, domain):
-    printVar2(r)
-
-def emod(mod, domain):
-  def mixModWithLoc(loc):
-    newMod = copy.deepcopy(mod)
-    newMod["boolexp"] = newMod["boolexp"].replace("%loc",loc)
-    newMod["endexp"] = newMod["endexp"].replace("%loc",loc)
-    insertLocInEffect(newMod["effect"],loc)
-    return newMod
-  
-  def mixModWithOrgDst(matrixCell):
-    (org, dst, r) = matrixCell
-    if (org != dst):
-      newMod = copy.deepcopy(mod)
-      newMod["boolexp"] = newMod["boolexp"].replace("%org",org)
-      newMod["boolexp"] = newMod["boolexp"].replace("%dst",dst)
-      newMod["endexp"] = newMod["endexp"].replace("%org",org)
-      newMod["endexp"] = newMod["endexp"].replace("%dst",dst)
-      insertOrgInEffect(newMod["effect"],org)
-      insertDstInEffect(newMod["effect"],dst)
-      return newMod
-    else:
-      return nullInstruction
-
-  modBuilder = None
-  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
-    modBuilder = mixModWithLoc
-  else: #the type is tuple, it is a matrix
-    modBuilder = mixModWithOrgDst
-  for r in map(modBuilder, domain):
-    printMod(r)
-
-def expand(domainId, instruction, writer):
-  if (domainId in locationLists):
-    writer(instruction, locationLists[domainId])
-  elif (domainId in locationMatrices):
-    writer(instruction, locationMatrices[domainId])
-  elif (domainId == "all"):
-    writer(instruction, list(locations.keys()))
-  else:
-    print("Error, " + domainId + " doesn't exist")
-    sys.exit(2)
-
-def setLinkValue(interface, siteName, intValue):
-  for site in interface:
-    if (site["name"] == siteName):
-      site["lstate"] = "!" + str(intValue)
-      break
-
-def findBond(left, right):
-  for l in left["interface"]:
-    for r in right["interface"]:
-      if (l["lstate"] == r["lstate"]):
-        return (r["name"], l["name"])
-  print("Error in chain definition!, can't find prev and next sites")
-  sys.exit(3)
-
-def getLinkValue(agent, siteName):
-  for site in agent["interface"]:
-    if (site["name"] == siteName):
-      return int(site["lstate"][1:])
-  print("Error, can't find siteName in getLinkValue function")
-  sys.exit(4)
-
-def buildChain(first, second, last):
-  (prv, nxt) = findBond(first, second)
-  start = getLinkValue(second, nxt)
-  step = start - getLinkValue(first, nxt)
-  stop = getLinkValue(last, prv)
-  chain = [first, second]
-  for i in range(start, stop, step):
-    if (i < stop):
-      newAgent = copy.deepcopy(second)
-      setLinkValue(newAgent["interface"], prv, i)
-      setLinkValue(newAgent["interface"], nxt, i + step)
-      chain += [newAgent]
-  chain += [last]
-  return chain
-
-def PkaParser():  
   def p_prekappa(p):
     '''prekappa : prekappa instruction
                 | prekappa info
@@ -690,9 +251,13 @@ def PkaParser():
     print("\n" + p[1])
 
   def p_loc(p):
-    'loc : LOC ID NUMBER'
+    'loc : LOC ID numberlist'
     global locations
-    locations[p[2]] = float(p[3])
+    if locations.__contains__(p[2]):
+      sys.stderr.write("Warning!, location " + p[2] + " redefined\n")
+    locations[p[2]] = []
+    for i in map(float,p[3]):
+      locations[p[2]].append(i)
     printLocation(p[2], p[3])
 
   def p_locl(p):
@@ -854,7 +419,7 @@ def PkaParser():
     'algexp : LPAREN algexp RPAREN'
     p[0] = p[1] + " " + p[2] + " " + p[3]
 
-  def p_algexp_two(p):
+  def p_algexp_function(p):
     'algexp : FUNCTION algexp'
     p[0] = p[1] + " " + p[2]
 
@@ -866,17 +431,14 @@ def PkaParser():
               | TMAX
               | TIME
               | EVENT
-              | LABEL'''
+              | LABEL
+              | PKVARIABLE'''
     p[0] = p[1]
 
   def p_chain(p):
-    'chain : agent COMMA agent COMMA ELLIPSIS COMMA agent'
-    p[0] = buildChain(p[1], p[3], p[7])
+    'expression : expression COMMA ELLIPSIS COMMA agent'
+    p[0] = p[1][0:-2] + buildChain(p[1][-2], p[1][-1],p[5])
 
-  def p_expression_chain(p):
-    'expression : expression COMMA chain'
-    p[0] = p[1] + p[3]
-  
   def p_expression_expression(p):
     'expression : expression COMMA expression'
     p[0] = p[1] + p[3]
@@ -924,7 +486,7 @@ def PkaParser():
     p[0] = site
   
   def p_site_locfield(p):
-    'site : LOCFIELD'
+    'site : DIFFTARGET'
     site = {}
     site["name"] = p[1]
     site["istate"] = ""
@@ -958,9 +520,9 @@ def PkaParser():
     printRule(p[1])
   
   def p_einit(p):
-    'einit : EINIT ID NUMBER agent'
+    'einit : EINIT ID algexp agent'
     init = {}
-    init["n"] = float(p[3])
+    init["quantity"] = p[3]
     init["agent"] = p[4]
     print("#expanding in " + p[2], end=" ")
     printInit(init)
@@ -969,7 +531,7 @@ def PkaParser():
   def p_init(p):
     'init : INIT NUMBER agent'
     init = {}
-    init["n"] = float(p[2])
+    init["quantity"] = p[2]
     init["agent"] = p[3]
     printInit(init)
 
@@ -1118,14 +680,601 @@ def PkaParser():
     mod["endexp"] = ""
     printMod(mod)
 
-# Error rule for syntax errors
-  def p_error(p):
-    print("Syntax error in input! " + str(p))
-    
+  return yacc.yacc()
+
+def printLocation(name, dataArray):
+  print("# defined location " + name + " with data array = " + " ".join(map(str,dataArray)))
+
+def printLocationList(name, llist):
+  print("# defined location list " + name + " containing: " + ",".join(llist))
+
+def printLocationMatrix(name, lmatrix):
+  print("# defined location matrix " + name + ":")
+  for mrow in lmatrix:
+    print("#\t" + "\t".join(map(str, mrow)))
+  print()
+
+def printSignature(agentsignature):
+  print("%agent: " + agentsignature["name"] + "(", end='')
+  sites = []
+  for sitesignature in agentsignature["signature"]:
+    sites.append(sitesignature["name"] + "".join(sitesignature["istatelist"]))
+  print(",".join(sites) + ")")
+
+def siteToString(site):
+  return site["name"] + site["lstate"] + site["istate"]
+
+def agentToString(agent):
+  s = agent["name"] + "("
+  s += ",".join(map(siteToString, agent["interface"]))
+  return s + ")"
+
+def expressionToString(expression):
+  return ",".join(map(agentToString, expression))
+
+def effectToString(effect):
+  if (effect["keyword"] == "$ADD" or effect["keyword"] == "$DEL"):
+    return " ".join([effect["keyword"],effect["algexp"],expressionToString(effect["expression"])])
+  elif (effect["keyword"] == "$SNAPSHOT" or effect["keyword"] == "$STOP"):
+    return effect["keyword"]
+  else:
+    return " ".join([effect["rule"],effect["keyword"],effect["rate"]])
+  
+def printRule(rule):
+  if (rule != nullInstruction):
+    print(rule["label"] + " " + expressionToString(rule["lhs"]) + " -> " + expressionToString(rule["rhs"]) + " @ " + rule["rate"])
+
+def printInit(init):
+  if (init != nullInstruction):
+    print("%init: " + init["quantity"] + " " + agentToString(init["agent"]))
+
+def printObs(obs):
+  if (obs != nullInstruction):
+    print("%obs: " + obs["label"] + " " + expressionToString(obs["expression"]))
+
+def printObs2(obs):
+  if (obs != nullInstruction):
+    print("%obs: " + obs["label"] + " " + obs["algexp"])
+
+def printMod(mod):
+  if (mod != nullInstruction):
+    print(" ".join(["%mod:",mod["boolexp"],"do",effectToString(mod["effect"])]), end="")
+    if (mod["endexp"] != ""):
+      print(" " + "until" + " " + mod["endexp"], end="")
+    print()
+
+def esignature(sign, domain):
+  if (domain[0].__class__ == "".__class__): #if the first element is a string, domain is a list of locs
+    locsignature = {}
+    locsignature["name"] = "loc"
+    locsignature["istatelist"] = []
+    for loc in domain:
+      locsignature["istatelist"].append("~" + loc)
+    sign["signature"].append(locsignature)
+  else: #otherwise the first element is a tuple, so the domain is a matrix of locs
+    orgsignature = {}
+    orgsignature["name"] = "org"
+    orgsignature["istatelist"] = []
+    dstsignature = {}
+    dstsignature["name"] = "dst"
+    dstsignature["istatelist"] = []
+    for (org,dst,n) in domain:
+      if ("~" + org not in orgsignature["istatelist"]):#This ensures that the input order is maintained
+        orgsignature["istatelist"].append("~" + org)
+      if ("~" + dst not in dstsignature["istatelist"]):
+        dstsignature["istatelist"].append("~" + dst)
+    sign["signature"].append(orgsignature)
+    sign["signature"].append(dstsignature)
+  printSignature(sign)
+
+def isBimol(expression):
+  def searchLink(linkList, link, i):
+    for agent in range(0,len(linkList)):
+      if (agent != i):
+        for l in linkList[agent]:
+          if (link == l):
+            return agent
+    print("Error in links of a rule", file=sys.stderr)
+    sys.exit(1)
+
+  def isConnected(graph):
+    visited = []
+    for i in range(0,len(graph)):
+      visited.append(False)
+    def isConnectedIter(i):
+      visited[i] = True
+      if (all(n == True for n in visited)):
+        return True
+      for n in graph[i]:
+        if (not visited[n]):
+          if (isConnectedIter(n)):
+            return True
+      return False
+    return isConnectedIter(0)
+
+  linkList = []
+  i = 0
+  for agent in expression:
+    linkList.append([])
+    for site in agent["interface"]:
+      link = site["lstate"]
+      if (link != "!?" and link != "!_" and link != ""):
+        linkList[i].append(link)
+    i += 1
+  connections = []
+  i = 0
+  for agent in linkList:
+    connections.append([])
+    for link in agent:
+      connections[i].append(searchLink(linkList, link, i))
+  return not isConnected(connections)
+
+def agentHasSite(agentName, siteName):
+  signature = signatures[agentName]
+  for site in signature:
+    if (site["name"] == siteName):
+      return True
+  return False
+
+def insertSite(siteName, agent, istate):
+  if (agentHasSite(agent["name"], siteName)):
+    site = {}
+    site["name"] = siteName
+    site["istate"] = "~" + istate
+    site["lstate"] = ""
+    agent["interface"].append(site)
+
+def insertLocInAgent(agent, loc):
+  insertSite("loc", agent, loc)
+
+def insertOrgInAgent(agent, org):
+  insertSite("org", agent, org)
+  insertSite("loc", agent, org)
+
+def insertDstInAgent(agent, dst):
+  insertSite("dst", agent, dst)
+
+def insertLocInComplex(expression, loc):
+  for agent in expression:
+    insertLocInAgent(agent, loc)
+
+def insertOrgInComplex(expression, org):
+  for agent in expression:
+    insertOrgInAgent(agent, org)
+
+def insertDstInComplex(expression, dst):
+  for agent in expression:
+    insertDstInAgent(agent, dst)
+
+def insertSiteInEffect(siteName, effect, istate):
+  if (effect["keyword"] == "$ADD" or effect["keyword"] == "$DEL"):
+    effect["algexp"] = effect["algexp"].replace("%" + siteName, istate)
+    for agent in effect["expression"]:
+      insertSite(siteName, agent, istate)
+  else:
+    for key in effect.keys():
+      effect[key] = effect[key].replace("%" + siteName, istate)
+
+def insertLocInEffect(effect, loc):
+  insertSiteInEffect("loc", effect, loc)
+
+def insertOrgInEffect(effect, org):
+  insertSiteInEffect("org", effect, org)
+
+def insertDstInEffect(agent, dst):
+  insertSiteInEffect("dst", agent, dst)
+
+def interfaceHasSite(interface, siteName):
+  for site in interface:
+    if (site["name"] == siteName):
+      return True
+  return False
+
+def diffuseAgent(interface, dst):
+  i = 0
+  for site in interface:
+    if (site["name"] == "loc"):
+      site["istate"] = "~" + dst
+    elif (site["name"] == "%"):
+      p = i
+    i += 1
+  interface.pop(p)
+
+def replaceLocVariable(algexp, variable, dataArray):
+  splittedStr = algexp.split(" ")
+  for i in range(len(splittedStr)):
+    if re.match(variable + "\[\d+\]", splittedStr[i]):
+      index = int(re.findall("\d+", splittedStr[i])[-1])
+      if index < len(dataArray):
+        splittedStr[i] = str(dataArray[index])
+      else:
+        sys.exit(1)
+  return " ".join(splittedStr)
+
+def erule(rule, domain):
+  def makeDiffusions(expression, dst):
+    for agent in expression:
+      if(interfaceHasSite(agent["interface"], "%")):
+        diffuseAgent(agent["interface"], dst)
+
+  def encloseAndSuffix(prefix, suffix):
+    return "(" + prefix + ") " + suffix
+
+  def mixRuleWithLoc(loc):
+    newRule = copy.deepcopy(rule)
+    newRule["label"] = newRule["label"].replace("%loc",loc)
+    insertLocInComplex(newRule["lhs"],loc)
+    insertLocInComplex(newRule["rhs"],loc)
+    newRule["rate"] = replaceLocVariable(newRule["rate"], "%loc", locations[loc])
+    newRule["rate"] = newRule["rate"].replace("%loc", loc)
+    #if (isBimol(rule["lhs"])):
+    #  newRule["rate"] = encloseAndSuffix(newRule["rate"], "/ " + str(locations[loc]))
+    return newRule
+  
+  def mixRuleWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newRule = copy.deepcopy(rule)
+      newRule["label"] = newRule["label"].replace("%org",org)
+      newRule["label"] = newRule["label"].replace("%dst",dst)
+      insertOrgInComplex(newRule["lhs"],org)
+      insertOrgInComplex(newRule["rhs"],org)
+      insertDstInComplex(newRule["lhs"],dst)
+      insertDstInComplex(newRule["rhs"],dst)
+      newRule["rate"] = replaceLocVariable(newRule["rate"], "%org", locations[org])
+      newRule["rate"] = replaceLocVariable(newRule["rate"], "%dst", locations[dst])
+      newRule["rate"] = newRule["rate"].replace("%cell", str(r))
+      newRule["rate"] = newRule["rate"].replace("%org", org)
+      newRule["rate"] = newRule["rate"].replace("%dst", dst)
+      #if (isBimol(rule["lhs"])):
+      #  newRule["rate"] = encloseAndSuffix(newRule["rate"], "/ " + str(locations[org]))
+      makeDiffusions(newRule["rhs"], dst)
+      return newRule
+    else:
+      return nullInstruction
+
+  ruleBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    ruleBuilder = mixRuleWithLoc
+  else: #the type is tuple, it is a matrix
+    ruleBuilder = mixRuleWithOrgDst
+  for r in map(ruleBuilder, domain):
+    printRule(r)
+
+def einit(init, domain):
+  def mixInitWithLoc(loc):
+    newInit = copy.deepcopy(init)
+    insertLocInAgent(newInit["agent"], loc)
+    newInit["quantity"] = replaceLocVariable(newInit["quantity"], "%loc", locations[loc])
+    newInit["quantity"] = str(int(aeParser.parse(newInit["quantity"],lexer=aeLexer)))
+    return newInit
+  
+  def mixInitWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newInit = copy.deepcopy(init)
+      insertOrgInAgent(newInit["agent"],org)
+      insertDstInAgent(newInit["agent"],dst)
+      newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%org",locations[org])
+      newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%dst",locations[dst])
+      newInit["quantity"] = newInit["quantity"].replace("%cell", str(r))
+      newInit["quantity"] = str(int(aeParser.parse(newInit["quantity"],lexer=aeLexer)))
+      return newInit
+    else:
+      return nullInstruction
+
+  initBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    initBuilder = mixInitWithLoc
+  else: #the type is tuple, it is a matrix
+    initBuilder = mixInitWithOrgDst
+  for i in map(initBuilder, domain):
+    printInit(i)
+
+def eobs(obs, domain):
+  def mixObsWithLoc(loc):
+    newObs = copy.deepcopy(obs)
+    newObs["label"] = newObs["label"].replace("%loc",loc)
+    insertLocInComplex(newObs["expression"],loc)
+    return newObs
+  
+  def mixObsWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newObs = copy.deepcopy(obs)
+      newObs["label"] = newObs["label"].replace("%org",org)
+      newObs["label"] = newObs["label"].replace("%dst",dst)
+      insertOrgInComplex(newObs["expression"],org)
+      insertDstInComplex(newObs["expression"],dst)
+      return newObs
+    else:
+      return nullInstruction
+
+  obsBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    obsBuilder = mixObsWithLoc
+  else: #the type is tuple, it is a matrix
+    obsBuilder = mixObsWithOrgDst
+  for r in map(obsBuilder, domain):
+    printObs(r)
+
+def eobs2(obs, domain):
+  def mixObsWithLoc(loc):
+    newObs = copy.deepcopy(obs)
+    newObs["label"] = newObs["label"].replace("%loc",loc)
+    newObs["algexp"] = newObs["algexp"].replace("%loc",loc)
+    return newObs
+  
+  def mixObsWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newObs = copy.deepcopy(obs)
+      newObs["label"] = newObs["label"].replace("%org",org)
+      newObs["label"] = newObs["label"].replace("%dst",dst)
+      newObs["algexp"] = newObs["algexp"].replace("%org",org)
+      newObs["algexp"] = newObs["algexp"].replace("%dst",dst)
+      return newObs
+    else:
+      return nullInstruction
+
+  obsBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    obsBuilder = mixObsWithLoc
+  else: #the type is tuple, it is a matrix
+    obsBuilder = mixObsWithOrgDst
+  for r in map(obsBuilder, domain):
+    printObs2(r)
+
+def evar(var, domain):
+  def mixVarWithLoc(loc):
+    newVar = copy.deepcopy(var)
+    newVar["label"] = newVar["label"].replace("%loc",loc)
+    insertLocInComplex(newVar["expression"],loc)
+    return newVar
+  
+  def mixVarWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newVar = copy.deepcopy(var)
+      newVar["label"] = newVar["label"].replace("%org",org)
+      newVar["label"] = newVar["label"].replace("%dst",dst)
+      insertOrgInComplex(newVar["expression"],org)
+      insertDstInComplex(newVar["expression"],dst)
+      return newVar
+    else:
+      return nullInstruction
+
+  varBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    varBuilder = mixVarWithLoc
+  else: #the type is tuple, it is a matrix
+    varBuilder = mixVarWithOrgDst
+  for r in map(varBuilder, domain):
+    printVar(r)
+
+def evar2(var, domain):
+  def mixVarWithLoc(loc):
+    newVar = copy.deepcopy(var)
+    newVar["label"] = newVar["label"].replace("%loc",loc)
+    newVar["algexp"] = newVar["algexp"].replace("%loc",loc)
+    return newVar
+  
+  def mixVarWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newVar = copy.deepcopy(var)
+      newVar["label"] = newVar["label"].replace("%org",org)
+      newVar["label"] = newVar["label"].replace("%dst",dst)
+      newVar["algexp"] = newVar["algexp"].replace("%org",org)
+      newVar["algexp"] = newVar["algexp"].replace("%dst",dst)
+      return newVar
+    else:
+      return nullInstruction
+
+  varBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    varBuilder = mixVarWithLoc
+  else: #the type is tuple, it is a matrix
+    varBuilder = mixVarWithOrgDst
+  for r in map(varBuilder, domain):
+    printVar2(r)
+
+def emod(mod, domain):
+  def mixModWithLoc(loc):
+    newMod = copy.deepcopy(mod)
+    #newMod["boolexp"] = newMod["boolexp"].replace("%loc",loc)
+    #newMod["endexp"] = newMod["endexp"].replace("%loc",loc)
+    newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%loc",locations[loc])
+    newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%loc",locations[loc])
+    insertLocInEffect(newMod["effect"],loc)
+    return newMod
+  
+  def mixModWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newMod = copy.deepcopy(mod)
+      #newMod["boolexp"] = newMod["boolexp"].replace("%org",org)
+      #newMod["boolexp"] = newMod["boolexp"].replace("%dst",dst)
+      #newMod["endexp"] = newMod["endexp"].replace("%org",org)
+      #newMod["endexp"] = newMod["endexp"].replace("%dst",dst)
+      newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%org",locations[org])
+      newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%dst",locations[dst])
+      newMod["boolexp"] = newMod["boolexp"].replace("%cell",str(r))
+      newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%org",locations[org])
+      newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%dst",locations[dst])
+      newMod["endexp"] = newMod["endexp"].replace("%cell",str(r))
+      insertOrgInEffect(newMod["effect"],org)
+      insertDstInEffect(newMod["effect"],dst)
+      return newMod
+    else:
+      return nullInstruction
+
+  modBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    modBuilder = mixModWithLoc
+  else: #the type is tuple, it is a matrix
+    modBuilder = mixModWithOrgDst
+  for r in map(modBuilder, domain):
+    printMod(r)
+
+def expand(domainId, instruction, writer):
+  if (domainId in locationLists):
+    writer(instruction, locationLists[domainId])
+  elif (domainId in locationMatrices):
+    writer(instruction, locationMatrices[domainId])
+  elif (domainId == "all"):
+    writer(instruction, list(locations.keys()))
+  else:
+    print("Error, " + domainId + " doesn't exist", file=sys.stderr)
+    sys.exit(2)
+
+def setLinkValue(interface, siteName, intValue):
+  for site in interface:
+    if (site["name"] == siteName):
+      site["lstate"] = "!" + str(intValue)
+      break
+
+def findBond(left, right):
+  for l in left["interface"]:
+    for r in right["interface"]:
+      if (l["lstate"] == r["lstate"]):
+        return (r["name"], l["name"])
+  print("Error in chain definition!, can't find prev and next sites", file=sys.stderr)
+  sys.exit(3)
+
+def getLinkValue(agent, siteName):
+  for site in agent["interface"]:
+    if (site["name"] == siteName):
+      return int(site["lstate"][1:])
+  print("Error, can't find siteName in getLinkValue function", file=sys.stderr)
+  sys.exit(4)
+
+def buildChain(first, second, last):
+  (prv, nxt) = findBond(first, second)
+  start = getLinkValue(second, nxt)
+  step = start - getLinkValue(first, nxt)
+  stop = getLinkValue(last, prv)
+  chain = [first, second]
+  for i in range(start, stop, step):
+    if (i < stop):
+      newAgent = copy.deepcopy(second)
+      setLinkValue(newAgent["interface"], prv, i)
+      setLinkValue(newAgent["interface"], nxt, i + step)
+      chain += [newAgent]
+  chain += [last]
+  return chain
+
+algExpTokens = ('AENUMBER',
+                'AEPI',
+                'AEPLUS',
+                'AEMINUS',
+                'AETIMES',
+                'AEDIVIDE',
+                'AELPAREN',
+                'AERPAREN',
+                'AEFUNCTION'
+                )
+
+# List of token names.   This is always required
+def AlgExpLexer():
+  tokens = algExpTokens
+
+  # Regular expression rules for simple tokens
+  t_AEPLUS     = r'\+'
+  t_AEMINUS    = r'-'
+  t_AETIMES    = r'\*'
+  t_AEDIVIDE   = r'/'
+  t_AELPAREN   = r'\('
+  t_AERPAREN   = r'\)'
+  t_AEPI       = r'\[pi\]'
+  t_AEFUNCTION = r'\[(exp|sin|cos|tan|int|sqrt|log)\]'
+
+  # A regular expression rule with some action code
+  # Note addition of self parameter since we're in a class
+  def t_AENUMBER(t):
+    r'(\d+\.\d*|\d*\.\d+|\d+)([Ee][\+-]?\d+)|(\d+\.\d*|\d*\.\d+|\d+)'
+    t.value = float(t.value)
+    return t
+
+  # Define a rule so we can track line numbers
+  def t_newline(t):
+      r'\n+'
+      t.lexer.lineno += len(t.value)
+
+  # A string containing ignored characters (spaces and tabs)
+  #t_ignore  = ' \t'
+
+  # Error handling rule
+  #def t_error(t):
+  #    print("Illegal character " + t.value[0])
+  #    t.lexer.skip(1)
+
+  return lex.lex()
+  
+def AlgExpParser():
+  tokens = algExpTokens
+
+  def p_expression_plus(p):
+    'expression : expression AEPLUS term'
+    p[0] = p[1] + p[3]
+
+  def p_expression_minus(p):
+    'expression : expression AEMINUS term'
+    p[0] = p[1] - p[3]
+
+  def p_expression_term(p):
+    'expression : term'
+    p[0] = p[1]
+
+  def p_term_times(p):
+    'term : term AETIMES factor'
+    p[0] = p[1] * p[3]
+
+  def p_term_div(p):
+    'term : term AEDIVIDE factor'
+    p[0] = p[1] / p[3]
+
+  def p_term_factor(p):
+    'term : factor'
+    p[0] = p[1]
+
+  def p_factor_num(p):
+    'factor : AENUMBER'
+    p[0] = p[1]
+
+  def p_factor_pi(p):
+    'factor : AEPI'
+    p[0] = math.pi
+
+  def p_factor_function(p):
+    'factor : AEFUNCTION factor'
+    if p[1] == "[exp]":
+      p[0] = math.exp(p[2])
+    elif p[1] == "[sin]":
+      p[0] = math.sin(p[2])
+    elif p[1] == "[cos]":
+      p[0] = math.cos(p[2])
+    elif p[1] == "[tan]":
+      p[0] = math.tan(p[2])
+    elif p[1] == "[int]":
+      p[0] = int(p[2])
+    elif p[1] == "[sqrt]":
+      p[0] = math.sqrt(p[2])
+    elif p[1] == "[log]":
+      p[0] = math.log(p[2])
+    else:
+      print("Error, function " + p[1] + " is not supported.", file=sys.stderr)
+      sys.exit(1)
+
+  def p_factor_expr(p):
+    'factor : AELPAREN expression AERPAREN'
+    p[0] = p[2]
+
+  # Build the parser
   return yacc.yacc()
 
 def usage():
-  print("Usage: prekappa.py prekappa_file")
+  print("Usage: prekappa.py prekappa_file", file=sys.stderr)
   sys.exit(0)
 
 def main():
@@ -1137,7 +1286,7 @@ def main():
   try:
     PKA = open(filename, "r")
   except IOError:
-    print("Couldn't open " + filename)
+    print("Couldn't open " + filename, file=sys.stderr)
     usage()
 
   lexer = PkaLexer()
@@ -1153,7 +1302,9 @@ def main():
 
   if (1):
     print("# Created by expander.py")
-    parser.parse(PKA.read())
+    parser.parse(PKA.read(), lexer=lexer)
     #print(result)
 
+aeLexer = AlgExpLexer()
+aeParser = AlgExpParser()
 main()
