@@ -439,6 +439,10 @@ def PkaParser():
     'expression : expression COMMA ELLIPSIS COMMA agent'
     p[0] = p[1][0:-2] + buildChain(p[1][-2], p[1][-1],p[5])
 
+  def p_expression(p):
+    'expression : LPAREN expression RPAREN'
+    p[0] = p[1]
+
   def p_expression_expression(p):
     'expression : expression COMMA expression'
     p[0] = p[1] + p[3]
@@ -520,19 +524,19 @@ def PkaParser():
     printRule(p[1])
   
   def p_einit(p):
-    'einit : EINIT ID algexp agent'
+    'einit : EINIT ID algexp expression'
     init = {}
     init["quantity"] = p[3]
-    init["agent"] = p[4]
+    init["expression"] = p[4]
     print("#expanding in " + p[2], end=" ")
     printInit(init)
     expand(p[2], init, einit)
 
   def p_init(p):
-    'init : INIT NUMBER agent'
+    'init : INIT NUMBER expression'
     init = {}
     init["quantity"] = p[2]
-    init["agent"] = p[3]
+    init["expression"] = p[3]
     printInit(init)
 
   def p_eobs(p):
@@ -726,7 +730,7 @@ def printRule(rule):
 
 def printInit(init):
   if (init != nullInstruction):
-    print("%init: " + init["quantity"] + " " + agentToString(init["agent"]))
+    print("%init: " + init["quantity"] + " " + expressionToString(init["expression"]))
 
 def printObs(obs):
   if (obs != nullInstruction):
@@ -834,7 +838,7 @@ def insertOrgInAgent(agent, org):
 def insertDstInAgent(agent, dst):
   insertSite("dst", agent, dst)
 
-def insertLocInComplex(expression, loc):
+def insertLocInExpression(expression, loc):
   for agent in expression:
     insertLocInAgent(agent, loc)
 
@@ -903,8 +907,8 @@ def erule(rule, domain):
   def mixRuleWithLoc(loc):
     newRule = copy.deepcopy(rule)
     newRule["label"] = newRule["label"].replace("%loc",loc)
-    insertLocInComplex(newRule["lhs"],loc)
-    insertLocInComplex(newRule["rhs"],loc)
+    insertLocInExpression(newRule["lhs"],loc)
+    insertLocInExpression(newRule["rhs"],loc)
     newRule["rate"] = replaceLocVariable(newRule["rate"], "%loc", locations[loc])
     newRule["rate"] = newRule["rate"].replace("%loc", loc)
     #if (isBimol(rule["lhs"])):
@@ -944,7 +948,7 @@ def erule(rule, domain):
 def einit(init, domain):
   def mixInitWithLoc(loc):
     newInit = copy.deepcopy(init)
-    insertLocInAgent(newInit["agent"], loc)
+    insertLocInExpression(newInit["expression"], loc)
     newInit["quantity"] = replaceLocVariable(newInit["quantity"], "%loc", locations[loc])
     newInit["quantity"] = str(int(aeParser.parse(newInit["quantity"],lexer=aeLexer)))
     return newInit
@@ -953,8 +957,8 @@ def einit(init, domain):
     (org, dst, r) = matrixCell
     if (org != dst):
       newInit = copy.deepcopy(init)
-      insertOrgInAgent(newInit["agent"],org)
-      insertDstInAgent(newInit["agent"],dst)
+      insertOrgInExpression(newInit["expression"],org)
+      insertDstInExpression(newInit["expression"],dst)
       newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%org",locations[org])
       newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%dst",locations[dst])
       newInit["quantity"] = newInit["quantity"].replace("%cell", str(r))
@@ -975,7 +979,7 @@ def eobs(obs, domain):
   def mixObsWithLoc(loc):
     newObs = copy.deepcopy(obs)
     newObs["label"] = newObs["label"].replace("%loc",loc)
-    insertLocInComplex(newObs["expression"],loc)
+    insertLocInExpression(newObs["expression"],loc)
     return newObs
   
   def mixObsWithOrgDst(matrixCell):
@@ -1029,7 +1033,7 @@ def evar(var, domain):
   def mixVarWithLoc(loc):
     newVar = copy.deepcopy(var)
     newVar["label"] = newVar["label"].replace("%loc",loc)
-    insertLocInComplex(newVar["expression"],loc)
+    insertLocInExpression(newVar["expression"],loc)
     return newVar
   
   def mixVarWithOrgDst(matrixCell):
