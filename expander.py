@@ -15,7 +15,7 @@ locationMatrices = {}
 signatures = {}
 nullInstruction = {}
 
-pkaTokens = ('LOC',
+pkaTokens = ['LOC',
              'LOCL',
              'LOCM',
              'ESIGNATURE',
@@ -63,8 +63,9 @@ pkaTokens = ('LOC',
              'BOOL',
              'NOT',
              'COMMENT',
-             'NEWLINE'
-             )
+             'NEWLINE',
+             'BACKSLASHNEWLINE',
+             ]
   
 # Error rule for syntax errors
 def p_error(p):
@@ -184,6 +185,10 @@ def PkaLexer():
     r'%mod:'
     return t
 
+  def t_BACKSLASHNEWLINE(t):
+    r'\\\n'
+    pass
+
   def t_NEWLINE(t):
     r'\n'
     t.lexer.lineno += 1
@@ -193,6 +198,7 @@ def PkaLexer():
 
 def PkaParser():
   tokens = pkaTokens
+  tokens.remove('BACKSLASHNEWLINE')
 
   precedence = (
     ('left', 'COMMA'),
