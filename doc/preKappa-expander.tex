@@ -72,7 +72,7 @@
       \item Agent Names     : an identifier.
       \item Agent Sites     : an identifier.
       \item Internal States : \int \textlangle value\textrangle.
-      \item Binding States  : !\textlangle n\textrangle, !\_ or ?.
+      \item Binding States  : !\textlangle n\textrangle, !\_ or !?.
     \end{itemize}
   \end{flushleft}
 \end{frame}
@@ -139,7 +139,7 @@
       \newline
     \end{itemize}
     \pause
-    \item Timming control.
+    \item Timing control.
     \begin{itemize}
       \item Polymer-driven rules to manipulate latency.
     \end{itemize}
@@ -204,7 +204,7 @@
   \end{flushleft}
 \end{frame}
 
-\subsection{Timming control}
+\subsection{Timing control}
 \begin{frame}
   \frametitle{polymer-driven rules}
   \begin{flushleft}
@@ -227,8 +227,7 @@
   \begin{flushleft}
     A Python (V2) script that takes as input a (built in-house) \structure <1>{pre-$\kappa$} file and outputs a kappa file which can subsequently be used with KaSim. \pause
     \item This is done using \structure <2>{Lexer \& Parser} techniques, available in Python through ply library. \pause
-    \item It facilitates $\kappa$ abstraction while reducing error-proneness. \pause
-    \item Freely available on \structure <4>{https://github.com/ajendrex/expander/}
+    \item It facilitates $\kappa$ abstraction while reducing error-proneness.
   \end{flushleft}
 \end{frame}
 
@@ -236,17 +235,17 @@
   \frametitle{pre-Kappa syntax: Locations}
   \begin{flushleft}
     \textcolor{blue}{\#Locations} \newline
-    \%loc: i 100 \newline
-    \%loc: j 1000 \newline
-    \%loc: k 500 \newline \pause
+    \%loc: i 100 10000 1201\newline
+    \%loc: j 1000 20000 3902\newline
+    \%loc: k 500 30000 2890\newline \pause
     \textcolor{blue}{\#Location list} \newline
     \%locl: all i j k \newline \pause
     \textcolor{blue}{\#Signatures}
     \item \structure <3>{\%expand-agent: all} A(x,c) \newline
     \structure <3>{\%expand-agent: all} B(x) \pause
     \item \structure <4>{gives:} \newline
-    \%agent: A(x,c,loc\int i\int j\int k) \newline
-    \%agent: B(x,loc\int i\int j\int k) \newline
+    \%agent: A(x,c,\structure <4>{loc\int i\int j\int k}) \newline
+    \%agent: B(x,\structure <4>{loc\int i\int j\int k}) \newline
   \end{flushleft}
 \end{frame}
 
@@ -254,21 +253,21 @@
   \frametitle{pre-Kappa syntax: Locations}
   \begin{flushleft} {\small
     \textcolor{blue}{\#Locations} \newline
-    \%loc: i 100 \newline
-    \%loc: j 1000 \newline
-    \%loc: k 500 \newline
+    \%loc: i \structure <2>{100} \structure <3>{10000} 1201\newline
+    \%loc: j \structure <2>{1000} \structure <3>{20000} 3902\newline
+    \%loc: k \structure <2>{500} \structure <3>{30000} 2890\newline 
     \textcolor{blue}{\#Location list} \newline
     \%locl: all i j k \newline
-    \textcolor{blue}{\#Initializations (expand if densities are equal)}
-    \item \structure <1>{\%expand-init: all ADensity} A(x,c) \newline
-    \structure <1>{\%expand-init: all BDensity} B(x) \pause
-    \item \structure <2>{gives:} \newline
-    \%init: ADensity * 100 A(x,c,loc\int i) \newline
-    \%init: ADensity * 1000 A(x,c,loc\int j) \newline
-    \%init: ADensity * 500 A(x,c,loc\int k) \newline
-    \%init: BDensity * 100 B(x,loc\int i) \newline
-    \%init: BDensity * 1000 B(x,loc\int j) \newline
-    \%init: BDensity * 500 B(x,loc\int k) \newline }
+    \textcolor{blue}{\#Initializations}
+    \item \structure <1>{\%expand-init: all \structure <2>{\%loc[0]}} A(x,c) \newline
+    \structure <1>{\%expand-init: all \structure <3>{\%loc[1]}} B(x) \pause 
+    \item \structure <2,3>{gives:} \newline
+    \%init: \structure <2>{100} A(x,c,\structure <2,3>{loc\int i}) \newline
+    \%init: \structure <2>{1000} A(x,c,\structure <2,3>{loc\int j}) \newline
+    \%init: \structure <2>{500} A(x,c,\structure <2,3>{loc\int k}) \newline \pause
+    \%init: \structure <3>{10000} B(x,\structure <3>{loc\int i}) \newline
+    \%init: \structure <3>{20000} B(x,\structure <3>{loc\int j}) \newline
+    \%init: \structure <3>{30000} B(x,\structure <3>{loc\int k}) \newline }
   \end{flushleft}
 \end{frame}
 
@@ -291,17 +290,17 @@
   \frametitle{pre-Kappa syntax: Locations}
   \begin{flushleft} {\scriptsize
     \textcolor{blue}{\#Locations} \newline
-    \%loc: i 100 \newline
-    \%loc: j 1000 \newline
-    \%loc: k 500 \newline
+    \%loc: i 100 10000 \structure <2>{1.201}\newline
+    \%loc: j 1000 20000 \structure <2>{3.902}\newline
+    \%loc: k 500 30000 \structure <2>{2.89}\newline
     \textcolor{blue}{\#Location list} \newline
-    \%locl: all i j k \newline \pause
+    \%locl: \structure <1>{all} i j k \newline
     \textcolor{blue}{\#A binds B} \newline
-    \%expand-rule: all A(x),B(x) $\rightarrow$ A(x!1),B(x!1) @ 'on\_base\_rate' \pause
-    \item \structure <3>{gives:} \newline
-    A(x,loc\int i),B(x,loc\int i) $\rightarrow$ A(x!1,loc\int i),B(x!1,loc\int i) @ 'on\_base\_rate' / 100 \newline
-    A(x,loc\int j),B(x,loc\int j) $\rightarrow$ A(x!1,loc\int j),B(x!1,loc\int j) @ 'on\_base\_rate' / 1000 \newline
-    A(x,loc\int k),B(x,loc\int k) $\rightarrow$ A(x!1,loc\int k),B(x!1,loc\int k) @ 'on\_base\_rate' / 500 \newline }
+    \structure <1>{\%expand-rule: all} A(x),B(x) $\rightarrow$ A(x!1),B(x!1) @ \structure <1,2>{\%loc[2]} \pause
+    \item \structure <2>{gives:} \newline
+    A(x,\structure <2>{loc\int i}),B(x,\structure <2>{loc\int i}) $\rightarrow$ A(x!1,\structure <2>{loc\int i}),B(x!1,\structure <2>{loc\int i}) @ \structure <2>{1.201} \newline
+    A(x,\structure <2>{loc\int j}),B(x,\structure <2>{loc\int j}) $\rightarrow$ A(x!1,\structure <2>{loc\int j}),B(x!1,\structure <2>{loc\int j}) @ \structure <2>{3.902} \newline
+    A(x,\structure <2>{loc\int k}),B(x,\structure <2>{loc\int k}) $\rightarrow$ A(x!1,\structure <2>{loc\int k}),B(x!1,\structure <2>{loc\int k}) @ \structure <2>{2.89} \newline }
   \end{flushleft}
 \end{frame}
 
@@ -312,20 +311,20 @@
     \textcolor{blue}{\#Location matrices} \newline
     \structure <1>{\%locm: \newline
       \begin{tabular}{ l c c c }
-        TM & i & j & k \\
-        i & 0 & 0.5 & 1.5 \\ 
-        j & 2.0 & 0 & 1.8 \\
-        k & 1.0 & 1.1 & 0 \\
+        \structure <3->{TM} & \structure <5,7>i & \structure <3,8>j & \structure <4,6>k \\
+        \structure <3,4>i & 0 & \structure <3->{0.5} & \structure <4->{1.5} \\ 
+        \structure <5,6>j & \structure <5->{2.0} & 0 & \structure <6->{1.8} \\
+        \structure <7,8>k & \structure <7->{1.0} & \structure <8->{1.1} & 0 \\
       \end{tabular} } \pause
     \item \textcolor{blue}{\#A diffusions} \newline
-    \structure <2>{\%expand-rule: TM} A(x,c),T() $\rightarrow$ A(\structure <2>{\%},x,c),T() @ 1 \pause
-    \item \structure <3>{gives:} \newline
-    A(loc\int i,x,c),T(org\int i,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int i,dst\int j) @ (1 * 0.5) / 100 \newline
-    A(loc\int i,x,c),T(org\int i,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int i,dst\int k) @ (1 * 1.5) / 100 \newline
-    A(loc\int j,x,c),T(org\int j,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int j,dst\int i) @ (1 * 2.0) / 1000 \newline
-    A(loc\int j,x,c),T(org\int j,dst\int k) $\rightarrow$ A(loc\int k,x,c),T(org\int j,dst\int k) @ (1 * 1.8) / 1000 \newline
-    A(loc\int k,x,c),T(org\int k,dst\int i) $\rightarrow$ A(loc\int i,x,c),T(org\int k,dst\int i) @ (1 * 1.0) / 500 \newline
-    A(loc\int k,x,c),T(org\int k,dst\int j) $\rightarrow$ A(loc\int j,x,c),T(org\int k,dst\int j) @ (1 * 1.1) / 500 \newline }
+    \structure <2>{\%expand-rule: \structure <3->{TM}} A(x,c),T() $\rightarrow$ A(\structure <2->{\%},x,c),T() @ \structure <2->{\%cell} \pause
+    \item \structure <3,4>{gives:} \newline
+    A(\structure <3->{loc\int i},x,c),T(\structure <3->{org\int i},\structure <3->{dst\int j}) $\rightarrow$ A(\structure <3->{loc\int j},x,c),T(\structure <3->{org\int i},\structure <3->{dst\int j}) @ \structure <3->{0.5} \newline \pause
+    A(\structure <4->{loc\int i},x,c),T(\structure <4->{org\int i},\structure <4->{dst\int k}) $\rightarrow$ A(\structure <4->{loc\int k},x,c),T(\structure <4->{org\int i},\structure <4->{dst\int k}) @ \structure <4->{1.5} \newline \pause
+    A(\structure <5->{loc\int j},x,c),T(\structure <5->{org\int j},\structure <5->{dst\int i}) $\rightarrow$ A(\structure <5->{loc\int i},x,c),T(\structure <5->{org\int j},\structure <5->{dst\int i}) @ \structure <5->{2.0} \newline \pause
+    A(\structure <6->{loc\int j},x,c),T(\structure <6->{org\int j},\structure <6->{dst\int k}) $\rightarrow$ A(\structure <6->{loc\int k},x,c),T(\structure <6->{org\int j},\structure <6->{dst\int k}) @ \structure <6->{1.8} \newline \pause
+    A(\structure <7->{loc\int k},x,c),T(\structure <7->{org\int k},\structure <7->{dst\int i}) $\rightarrow$ A(\structure <7->{loc\int i},x,c),T(\structure <7->{org\int k},\structure <7->{dst\int i}) @ \structure <7->{1.0} \newline \pause
+    A(\structure <8->{loc\int k},x,c),T(\structure <8->{org\int k},\structure <8->{dst\int j}) $\rightarrow$ A(\structure <8->{loc\int j},x,c),T(\structure <8->{org\int k},\structure <8->{dst\int j}) @ \structure <8->{1.1} \newline }
   \end{flushleft}
 \end{frame}
 
