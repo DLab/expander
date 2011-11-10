@@ -441,7 +441,7 @@ def PkaParser():
 
   def p_expression(p):
     'expression : LPAREN expression RPAREN'
-    p[0] = p[1]
+    p[0] = p[2]
 
   def p_expression_expression(p):
     'expression : expression COMMA expression'
@@ -842,11 +842,11 @@ def insertLocInExpression(expression, loc):
   for agent in expression:
     insertLocInAgent(agent, loc)
 
-def insertOrgInComplex(expression, org):
+def insertOrgInExpression(expression, org):
   for agent in expression:
     insertOrgInAgent(agent, org)
 
-def insertDstInComplex(expression, dst):
+def insertDstInExpression(expression, dst):
   for agent in expression:
     insertDstInAgent(agent, dst)
 
@@ -921,10 +921,10 @@ def erule(rule, domain):
       newRule = copy.deepcopy(rule)
       newRule["label"] = newRule["label"].replace("%org",org)
       newRule["label"] = newRule["label"].replace("%dst",dst)
-      insertOrgInComplex(newRule["lhs"],org)
-      insertOrgInComplex(newRule["rhs"],org)
-      insertDstInComplex(newRule["lhs"],dst)
-      insertDstInComplex(newRule["rhs"],dst)
+      insertOrgInExpression(newRule["lhs"],org)
+      insertOrgInExpression(newRule["rhs"],org)
+      insertDstInExpression(newRule["lhs"],dst)
+      insertDstInExpression(newRule["rhs"],dst)
       newRule["rate"] = replaceLocVariable(newRule["rate"], "%org", locations[org])
       newRule["rate"] = replaceLocVariable(newRule["rate"], "%dst", locations[dst])
       newRule["rate"] = newRule["rate"].replace("%cell", str(r))
@@ -988,8 +988,8 @@ def eobs(obs, domain):
       newObs = copy.deepcopy(obs)
       newObs["label"] = newObs["label"].replace("%org",org)
       newObs["label"] = newObs["label"].replace("%dst",dst)
-      insertOrgInComplex(newObs["expression"],org)
-      insertDstInComplex(newObs["expression"],dst)
+      insertOrgInExpression(newObs["expression"],org)
+      insertDstInExpression(newObs["expression"],dst)
       return newObs
     else:
       return nullInstruction
@@ -1042,8 +1042,8 @@ def evar(var, domain):
       newVar = copy.deepcopy(var)
       newVar["label"] = newVar["label"].replace("%org",org)
       newVar["label"] = newVar["label"].replace("%dst",dst)
-      insertOrgInComplex(newVar["expression"],org)
-      insertDstInComplex(newVar["expression"],dst)
+      insertOrgInExpression(newVar["expression"],org)
+      insertDstInExpression(newVar["expression"],dst)
       return newVar
     else:
       return nullInstruction
