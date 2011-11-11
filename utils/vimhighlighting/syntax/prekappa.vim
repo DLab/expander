@@ -14,6 +14,7 @@
 :syntax match prekappaStatement /^%expand-rule:/
 :syntax match prekappaStatement /^%expand-var:/
 :syntax match prekappaStatement /^%expand-obs:/
+:syntax match prekappaStatement /^%expand-plot:/
 :syntax match prekappaStatement /^%expand-init:/
 :syntax match prekappaStatement /^%expand-mod:/
 
