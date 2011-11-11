@@ -325,7 +325,7 @@ def PkaParser():
     'esignature : ESIGNATURE ID agentsignature'
     global signatures
     signatures[p[3]["name"]] = p[3]["signature"]
-    print("#expanding in " + p[2], end=" ")
+    print("#expanding in " + p[2], end="")
     printSignature(p[3])
     expand(p[2], p[3], esignature)
 
@@ -702,7 +702,6 @@ def printLocationMatrix(name, lmatrix):
   print("# defined location matrix " + name + ":")
   for mrow in lmatrix:
     print("#\t" + "\t".join(map(str, mrow)))
-  print()
 
 def printSignature(agentsignature):
   print("%agent: " + agentsignature["name"] + "(", end='')
