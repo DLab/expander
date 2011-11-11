@@ -25,6 +25,8 @@ pkaTokens = ['LOC',
              'INIT',
              'EOBS',
              'OBS',
+             'EPLOT',
+             'PLOT',
              'EVAR',
              'VAR',
              'EMOD',
@@ -168,6 +170,14 @@ def PkaLexer():
   def t_OBS(t):
     r'%obs:'
     return t
+  
+  def t_EPLOT(t):
+    r'%expand-plot:'
+    return t
+
+  def t_PLOT(t):
+    r'%plot:'
+    return t
 
   def t_EVAR(t):
     r'%expand-var:'
@@ -235,6 +245,8 @@ def PkaParser():
                    | init
                    | eobs
                    | obs
+                   | eplot
+                   | plot
                    | evar
                    | var
                    | emod
@@ -577,6 +589,38 @@ def PkaParser():
     obs["algexp"] = p[3]
     printObs2(obs)
   
+  def p_eplot(p):
+    'eplot : EPLOT ID LABEL expression'
+    plot = {}
+    plot["label"] = p[3]
+    plot["expression"] = p[4]
+    print("#expanding in " + p[2], end=" ")
+    printPlot(plot)
+    expand(p[2], plot, eplot)
+
+  def p_eplot_algexp(p):
+    'eplot : EPLOT ID LABEL algexp'
+    plot = {}
+    plot["label"] = p[3]
+    plot["algexp"] = p[4]
+    print("# expanding in " + p[2], end=" ")
+    printPlot2(plot)
+    expand(p[2], plot, eplot2)
+
+  def p_plot(p):
+    'plot : PLOT LABEL expression'
+    plot = {}
+    plot["label"] = p[2]
+    plot["expression"] = p[3]
+    printPlot(plot)
+
+  def p_plot_algexp(p):
+    'plot : PLOT LABEL algexp'
+    plot = {}
+    plot["label"] = p[2]
+    plot["algexp"] = p[3]
+    printPlot2(plot)
+  
   def p_evar(p):
     'evar : EVAR ID LABEL expression'
     var = {}
@@ -747,6 +791,14 @@ def printObs(obs):
 def printObs2(obs):
   if (obs != nullInstruction):
     print("%obs: " + obs["label"] + " " + obs["algexp"])
+
+def printPlot(plot):
+  if (plot != nullInstruction):
+    print("%plot: " + plot["label"] + " " + expressionToString(plot["expression"]))
+
+def printPlot2(plot):
+  if (plot != nullInstruction):
+    print("%plot: " + plot["label"] + " " + plot["algexp"])
 
 def printMod(mod):
   if (mod != nullInstruction):
@@ -1036,6 +1088,60 @@ def eobs2(obs, domain):
     obsBuilder = mixObsWithOrgDst
   for r in map(obsBuilder, domain):
     printObs2(r)
+
+def eplot(plot, domain):
+  def mixPlotWithLoc(loc):
+    newPlot = copy.deepcopy(plot)
+    newPlot["label"] = newPlot["label"].replace("%loc",loc)
+    insertLocInExpression(newPlot["expression"],loc)
+    return newPlot
+  
+  def mixPlotWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newPlot = copy.deepcopy(plot)
+      newPlot["label"] = newPlot["label"].replace("%org",org)
+      newPlot["label"] = newPlot["label"].replace("%dst",dst)
+      insertOrgInExpression(newPlot["expression"],org)
+      insertDstInExpression(newPlot["expression"],dst)
+      return newPlot
+    else:
+      return nullInstruction
+
+  plotBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    plotBuilder = mixPlotWithLoc
+  else: #the type is tuple, it is a matrix
+    plotBuilder = mixPlotWithOrgDst
+  for r in map(plotBuilder, domain):
+    printPlot(r)
+
+def eplot2(plot, domain):
+  def mixPlotWithLoc(loc):
+    newPlot = copy.deepcopy(plot)
+    newPlot["label"] = newPlot["label"].replace("%loc",loc)
+    newPlot["algexp"] = newPlot["algexp"].replace("%loc",loc)
+    return newPlot
+  
+  def mixPlotWithOrgDst(matrixCell):
+    (org, dst, r) = matrixCell
+    if (org != dst):
+      newPlot = copy.deepcopy(plot)
+      newPlot["label"] = newPlot["label"].replace("%org",org)
+      newPlot["label"] = newPlot["label"].replace("%dst",dst)
+      newPlot["algexp"] = newPlot["algexp"].replace("%org",org)
+      newPlot["algexp"] = newPlot["algexp"].replace("%dst",dst)
+      return newPlot
+    else:
+      return nullInstruction
+
+  plotBuilder = None
+  if (domain[0].__class__ == "".__class__): #if it is string, it is just loc
+    plotBuilder = mixPlotWithLoc
+  else: #the type is tuple, it is a matrix
+    plotBuilder = mixPlotWithOrgDst
+  for r in map(plotBuilder, domain):
+    printPlot2(r)
 
 def evar(var, domain):
   def mixVarWithLoc(loc):
