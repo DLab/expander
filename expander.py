@@ -186,7 +186,7 @@ def PkaLexer():
     return t
 
   def t_BACKSLASHNEWLINE(t):
-    r'\\\n'
+    r'\\[ \t]*\n'
     pass
 
   def t_NEWLINE(t):
@@ -736,7 +736,10 @@ def printRule(rule):
 
 def printInit(init):
   if (init != nullInstruction):
-    print("%init: " + init["quantity"] + " " + expressionToString(init["expression"]))
+    e = expressionToString(init["expression"])
+    if (len(init["expression"]) > 1):
+      e = "(" + e + ")"
+    print("%init: " + init["quantity"] + " " + e)
 
 def printObs(obs):
   if (obs != nullInstruction):

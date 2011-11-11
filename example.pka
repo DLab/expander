@@ -30,9 +30,11 @@
 %agent: Q(x,y,z)
 %agent: R(r,s,t)
 
-%expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> S(x!1),Z(x!1) @ [log] 'var%loc' * %loc[1]
+%expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> \ 
+              S(x!1),Z(x!1) @ [log] 'var%loc' * %loc[1]
 
-%expand-rule: a-b 'healing(%loc)' S(s~2,x!1),Z(x!1),Z() -> S(x),S(s~1,x),Z() @ 15.1
+%expand-rule: a-b 'healing(%loc)' S(s~2,x!1),Z(x!1),Z() -> \
+              S(x),S(s~1,x),Z() @ 15.1
 
 %expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
 
@@ -42,12 +44,12 @@ S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
 
 #in the case of identical density among locs: expand-init: locl density agent
-%expand-init: all 1000 S(s~1,x)
+%expand-init: all 1000 S(s~1,x),S()
 
 %expand-init: TM 4 * 5 - %cell T()
 
 #specific for a loc
-%init: 1 Z(loc~c)
+%init: 1 Z(loc~c),S()
 
 %expand-obs: all 'name(%loc)' Z(x)
 
