@@ -1,6 +1,6 @@
 #Ciudades: name n1 n2 n3 ...
-%loc: a 100 10 1
-%loc: b 300 30 3
+%loc: a 100 10 5
+%loc: b 300 30 7
 %loc: c 900 90 9
 
 #Listas de ciudades, utiles para expandir reglas en subconjuntos de ciudades
@@ -25,7 +25,7 @@
 
 %expand-agent: DM T(x)
 
-%expand-agent: all V(p,n)
+%expand-agent: all V(p,n,t~p~u)
 
 %agent: Q(x,y,z)
 %agent: R(r,s,t)
@@ -33,10 +33,17 @@
 %expand-rule: all 'fight(%loc)' S(s~1,x),Z(x) -> \ 
               S(x!1),Z(x!1) @ [log] 'var%loc' * %loc[1]
 
-%expand-rule: a-b 'healing(%loc)' S(s~2,x!1),Z(x!1),Z() -> \
+%expand-rule: a-b 'healing(%loc)' S(s~2,x!%loc[1]),Z(x!%loc[1]),Z() -> \
               S(x),S(s~1,x),Z() @ 15.1
 
-%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2),V(p!2,n!3),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t~p!60),V(p!2,n!3,t~u!61),...,V(p!%loc[2],n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t!60),V(p!2,n!3),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2),V(p!2,n!3,t!61),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t!60~u),V(p!2,n!3,t!_~u),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t!60),V(p!2,n!3,t?),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t!_),V(p!2,n!3,t!61),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t?),V(p!2,n!3,t!61),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
+%expand-rule: all 'infecting(%loc)' S(),S(),S(),S(x!1,y!12),V(p!1,n!2,t!51),V(p!2,n!3,t!61),...,V(p!11,n!12),Z(),Z() -> Z() @ [inf]
 
 %expand-rule: DM 'diffusion(%org-%dst)' T(x),S(x) -> T(),S(%) @ '%orgdiffusion%dst' * %cell - %org[0] + %dst[1]
 

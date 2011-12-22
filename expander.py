@@ -65,6 +65,7 @@ pkaTokens = ['LOC',
              'BOOL',
              'NOT',
              'COMMENT',
+             'EXCLAMATION',
              'NEWLINE',
              'BACKSLASHNEWLINE',
              ]
@@ -114,6 +115,7 @@ def PkaLexer():
   t_FUNCTION = r'\[(exp|sin|cos|tan|int|sqrt|log)\]'
   t_BOOL = r'[true]|[false]'
   t_COMMENT = r'\#.+'
+  t_EXCLAMATION = r'!'
 
   def t_DO(t):
     r'do'
@@ -337,7 +339,7 @@ def PkaParser():
     'esignature : ESIGNATURE ID agentsignature'
     global signatures
     signatures[p[3]["name"]] = p[3]["signature"]
-    print("#expanding in " + p[2], end="")
+    print("# expanding in " + p[2], end="")
     printSignature(p[3])
     expand(p[2], p[3], esignature)
 
@@ -394,14 +396,14 @@ def PkaParser():
   def p_erule(p):
     'erule : ERULE ID LABEL reaction'
     p[4]["label"] = p[3]
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printRule(p[4])
     expand(p[2], p[4], erule)
   
   def p_erule_no_label(p):
     'erule : ERULE ID reaction'
     p[4]["label"] = ""
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printRule(p[3])
     expand(p[2], p[3], erule)
 
@@ -455,7 +457,10 @@ def PkaParser():
 
   def p_chain(p):
     'expression : expression COMMA ELLIPSIS COMMA agent'
-    p[0] = p[1][0:-2] + buildChain(p[1][-2], p[1][-1],p[5])
+    p[1][-2]["firstOnChain"] = 1
+    p[1][-1]["secondOnChain"] = 1
+    p[5]["lastOnChain"] = 1
+    p[0] = p[1] + [p[5]]
 
   def p_expression(p):
     'expression : LPAREN expression RPAREN'
@@ -515,8 +520,16 @@ def PkaParser():
     site["lstate"] = ""
     p[0] = site
 
+  def p_lstate(p):
+    'lstate : LSTATE'
+    p[0] = p[1]
+
+  def p_lstate_algexp(p):
+    'lstate : EXCLAMATION algexp'
+    p[0] = p[1] + p[2]
+
   def p_site_lstate(p):
-    'site : ID LSTATE'
+    'site : ID lstate'
     site = {}
     site["name"] = p[1]
     site["istate"] = ""
@@ -524,11 +537,19 @@ def PkaParser():
     p[0] = site
 
   def p_site_istate_lstate(p):
-    'site : ID ISTATE LSTATE'
+    'site : ID ISTATE lstate'
     site = {}
     site["name"] = p[1]
-    site["istate"] = p[2][1:]
-    site["lstate"] = p[3][1:]
+    site["istate"] = p[2]
+    site["lstate"] = p[3]
+    p[0] = site
+  
+  def p_site_lstate_istate(p):
+    'site : ID lstate ISTATE'
+    site = {}
+    site["name"] = p[1]
+    site["lstate"] = p[2]
+    site["istate"] = p[3]
     p[0] = site
   
   def p_rule(p):
@@ -546,7 +567,7 @@ def PkaParser():
     init = {}
     init["quantity"] = p[3]
     init["expression"] = p[4]
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printInit(init)
     expand(p[2], init, einit)
 
@@ -562,7 +583,7 @@ def PkaParser():
     obs = {}
     obs["label"] = p[3]
     obs["expression"] = p[4]
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printObs(obs)
     expand(p[2], obs, eobs)
 
@@ -594,7 +615,7 @@ def PkaParser():
     plot = {}
     plot["label"] = p[3]
     plot["expression"] = p[4]
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printPlot(plot)
     expand(p[2], plot, eplot)
 
@@ -626,7 +647,7 @@ def PkaParser():
     var = {}
     var["label"] = p[3]
     var["expression"] = p[4]
-    print("#expanding in " + p[2], end=" ")
+    print("# expanding in " + p[2], end=" ")
     printVar(var)
     expand(p[2], var, evar)
 
@@ -755,11 +776,13 @@ def printSignature(agentsignature):
   print(",".join(sites) + ")")
 
 def siteToString(site):
-  return site["name"] + site["lstate"] + site["istate"]
+  return site["name"] + site["istate"] + site["lstate"]
 
 def agentToString(agent):
   s = agent["name"] + "("
   s += ",".join(map(siteToString, agent["interface"]))
+  if "lastOnChain" in agent:
+    s = "...," + s
   return s + ")"
 
 def expressionToString(expression):
@@ -862,7 +885,7 @@ def isBimol(expression):
     linkList.append([])
     for site in agent["interface"]:
       link = site["lstate"]
-      if (link != "!?" and link != "!_" and link != ""):
+      if (link != "?" and link != "!_" and link != ""):
         linkList[i].append(link)
     i += 1
   connections = []
@@ -944,16 +967,56 @@ def diffuseAgent(interface, dst):
     i += 1
   interface.pop(p)
 
-def replaceLocVariable(algexp, variable, dataArray):
+def replaceLocVariable(algexp, vname, dataArray):
   splittedStr = algexp.split(" ")
   for i in range(len(splittedStr)):
-    if re.match(variable + "\[\d+\]", splittedStr[i]):
+    if re.match(vname + "\[\d+\]", splittedStr[i]):
       index = int(re.findall("\d+", splittedStr[i])[-1])
       if index < len(dataArray):
         splittedStr[i] = str(dataArray[index])
       else:
+        print("Error replacing Loc variable", file=sys.stderr)
         sys.exit(1)
   return " ".join(splittedStr)
+
+def joinInAList(e1, e2):
+  return (e1,e2)
+
+def solveAlgebraicExpressions(expression):
+  for agent in expression:
+    for site in agent["interface"]:
+      if site["lstate"] != "" and site["lstate"] != "!_" and site["lstate"] != "?":
+        site["lstate"] = "!" + str(int(aeParser.parse(site["lstate"][1:],lexer=aeLexer)))
+
+def checkForAlgebraicExpressions(expression, vnames, dataArrays, cellValue):
+  for agent in expression:
+    for site in agent["interface"]:
+      for (vname,dataArray) in map(joinInAList, vnames, dataArrays):
+        for variable in re.findall(vname + "\[\d+\]", site["lstate"]):
+          index = int(re.findall("\d+", variable)[0])
+          if index < len(dataArray):
+            site["lstate"] = site["lstate"].replace(variable, str(dataArray[index]))
+          else:
+            print("Error replacing " + vname + "[" + str(index) + "] variable in a expression", file=sys.stderr)
+            sys.exit(2)
+      for variable in re.findall("%cell", site["lstate"]):
+        site["lstate"] = site["lstate"].replace(variable, str(cellValue))
+
+def checkForChains(expression):
+  newExpression = []
+  for i in range(len(expression)):
+    if "firstOnChain" in expression[i]:
+      expression[i].pop("firstOnChain")
+      continue
+    if "secondOnChain" in expression[i]:
+      expression[i].pop("secondOnChain")
+      continue
+    if "lastOnChain" in expression[i]:
+      expression[i].pop("lastOnChain")
+      newExpression = newExpression + buildChain(expression[i-2],expression[i-1],expression[i])
+      continue
+    newExpression = newExpression + [expression[i]]
+  return newExpression
 
 def erule(rule, domain):
   def makeDiffusions(expression, dst):
@@ -967,6 +1030,12 @@ def erule(rule, domain):
   def mixRuleWithLoc(loc):
     newRule = copy.deepcopy(rule)
     newRule["label"] = newRule["label"].replace("%loc",loc)
+    checkForAlgebraicExpressions(newRule["lhs"],["%loc"],[locations[loc]],str(0))
+    checkForAlgebraicExpressions(newRule["rhs"],["%loc"],[locations[loc]],str(0))
+    solveAlgebraicExpressions(newRule["lhs"])
+    solveAlgebraicExpressions(newRule["rhs"])
+    newRule["lhs"] = checkForChains(newRule["lhs"])
+    newRule["rhs"] = checkForChains(newRule["rhs"])
     insertLocInExpression(newRule["lhs"],loc)
     insertLocInExpression(newRule["rhs"],loc)
     newRule["rate"] = replaceLocVariable(newRule["rate"], "%loc", locations[loc])
@@ -981,6 +1050,12 @@ def erule(rule, domain):
       newRule = copy.deepcopy(rule)
       newRule["label"] = newRule["label"].replace("%org",org)
       newRule["label"] = newRule["label"].replace("%dst",dst)
+      checkForAlgebraicExpressions(newRule["lhs"],[org,dst],[locations[org],locations[dst]], str(r))
+      checkForAlgebraicExpressions(newRule["rhs"],[org,dst],[locations[org],locations[dst]], str(r))
+      solveAlgebraicExpressions(newRule["lhs"])
+      solveAlgebraicExpressions(newRule["rhs"])
+      newRule["lhs"] = checkForChains(newRule["lhs"])
+      newRule["rhs"] = checkForChains(newRule["rhs"])
       insertOrgInExpression(newRule["lhs"],org)
       insertOrgInExpression(newRule["rhs"],org)
       insertDstInExpression(newRule["lhs"],dst)
@@ -1246,10 +1321,13 @@ def expand(domainId, instruction, writer):
     print("Error, " + domainId + " doesn't exist", file=sys.stderr)
     sys.exit(2)
 
-def setLinkValue(interface, siteName, intValue):
+def setLinkValue(interface, siteName, lValue):
   for site in interface:
     if (site["name"] == siteName):
-      site["lstate"] = "!" + str(intValue)
+      if lValue == "" or lValue == "!_" or lValue == "?":
+        site["lstate"] = lValue
+      else:
+        site["lstate"] = "!" + str(lValue)
       break
 
 def findBond(left, right):
@@ -1267,17 +1345,71 @@ def getLinkValue(agent, siteName):
   print("Error, can't find siteName in getLinkValue function", file=sys.stderr)
   sys.exit(4)
 
+def getLinkString(agent, siteName):
+  for site in agent["interface"]:
+    if (site["name"] == siteName):
+      return site["lstate"]
+  return ""
+
+def excludeSites(agent, sitesToExclude):
+  sites = []
+  for site in agent["interface"]:
+    toBeExcluded = False
+    for siteName in sitesToExclude:
+      if site["name"] == siteName:
+        toBeExcluded = True
+        sitesToExclude.remove(siteName)
+        break
+    if not toBeExcluded:
+      sites.append(site["name"])
+  return sites
+
+def getBondSteps(agent1, agent2, sites):
+  bondSteps = []
+  for s in sites:
+    lValue = getLinkString(agent2, s)
+    if lValue == "":
+      bondSteps.append((s,0))
+      continue
+    if lValue == "!_" or lValue == "?":
+      bondSteps.append((s,lValue))
+      continue
+    prevLValue = getLinkString(agent1, s)
+    if prevLValue == "" or prevLValue == "!_" or prevLValue == "?":
+      bondSteps.append((s,0))
+      continue
+    step = int(lValue[1:]) - int(prevLValue[1:])
+    bondSteps.append((s,step))
+  return bondSteps
+
 def buildChain(first, second, last):
   (prv, nxt) = findBond(first, second)
+  restOfSites = excludeSites(second, [prv, nxt])
+  bondSteps = getBondSteps(first, second, restOfSites)
   start = getLinkValue(second, nxt)
   step = start - getLinkValue(first, nxt)
   stop = getLinkValue(last, prv)
   chain = [first, second]
+  prevLinkValues = {}
+  for siteName in restOfSites:
+    lString = getLinkString(second,siteName)
+    if lString != "" and lString != "!_" and lString != "?":
+      prevLinkValues[siteName] = int(lString[1:])
   for i in range(start, stop, step):
     if (i < stop):
       newAgent = copy.deepcopy(second)
       setLinkValue(newAgent["interface"], prv, i)
       setLinkValue(newAgent["interface"], nxt, i + step)
+      for (siteName,bondStep) in bondSteps:
+        if bondStep == 0:
+          setLinkValue(newAgent["interface"], siteName, "")
+          continue
+        if bondStep == "!_" or bondStep == "?":
+          setLinkValue(newAgent["interface"], siteName, bondStep)
+          continue
+        newLinkValue = int(prevLinkValues[siteName]) + bondStep
+        prevLinkValues[siteName] = newLinkValue
+        setLinkValue(newAgent["interface"], siteName, newLinkValue)
       chain += [newAgent]
   chain += [last]
   return chain
