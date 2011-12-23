@@ -15,21 +15,23 @@
 #	a	0.0	1.0	10.0
 #	c	8.0	3.0	0.0
 #	b	4.0	0.0	5.0
+
 # defined location matrix TM:
 #	TM	a	b	c
 #	a	0.0	2.0	3.0
 #	b	2.0	0.0	5.0
 #	c	3.0	4.0	0.0
-# expanding in a-b%agent: S(s~1~2,x)
+
+# expanding in a-b %agent: S(s~1~2,x)
 %agent: S(s~1~2,x,loc~a~b)
 
-# expanding in all%agent: Z(x)
+# expanding in all %agent: Z(x)
 %agent: Z(x,loc~a~b~c)
 
-# expanding in DM%agent: T(x)
+# expanding in DM %agent: T(x)
 %agent: T(x,org~a~c~b,dst~a~b~c)
 
-# expanding in all%agent: V(p,n,t~p~u)
+# expanding in all %agent: V(p,n,t~p~u)
 %agent: V(p,n,t~p~u,loc~a~b~c)
 
 %agent: Q(x,y,z)
@@ -88,7 +90,6 @@
  S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
 
-
 #in the case of identical density among locs: expand-init: locl density agent
 # expanding in all %init: 1000 (S(s~1,x),S())
 %init: 1000 (S(s~1,x,loc~a),S(loc~a))
@@ -102,7 +103,6 @@
 %init: 15 T(org~b,dst~c)
 %init: 17 T(org~c,dst~a)
 %init: 16 T(org~c,dst~b)
-
 
 #specific for a loc
 %init: 1 (Z(loc~c),S())
@@ -120,10 +120,10 @@
 %obs: 'anotherName(c,a)' T(x,org~c,dst~a)
 %obs: 'anotherName(c,b)' T(x,org~c,dst~b)
 
-# expanding in all %obs: 'halfZ(%loc)' 'name(%loc)' / 2
-%obs: 'halfZ(a)' 'name(a)' / 2
-%obs: 'halfZ(b)' 'name(b)' / 2
-%obs: 'halfZ(c)' 'name(c)' / 2
+# expanding in all %var: 'halfZ(%loc)' 'name(%loc)' / 2
+%var: 'halfZ(a)' 'name(a)' / 2
+%var: 'halfZ(b)' 'name(b)' / 2
+%var: 'halfZ(c)' 'name(c)' / 2
 
 # expanding in all %mod: ( [T] [mod] 10 = 0 ) do $ADD 1000 S(s~1,x) until [T] < 10000
 %mod: ( [T] [mod] 10 = 0 ) do $ADD 1000 S(s~1,x,loc~a) until [T] < 10000

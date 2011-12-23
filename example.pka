@@ -62,7 +62,7 @@ S(s~1) -> S(s~0) @ 1
 
 %expand-obs: TM 'anotherName(%org,%dst)' T(x)
 
-%expand-obs: all 'halfZ(%loc)' 'name(%loc)' / 2
+%expand-var: all 'halfZ(%loc)' 'name(%loc)' / 2
 
 %expand-mod: all ([T] [mod] 10 = 0) do $ADD 1000 S(s~1,x) until [T] < 10000
 

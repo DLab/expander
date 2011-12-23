@@ -202,8 +202,9 @@ def PkaLexer():
     pass
 
   def t_NEWLINE(t):
-    r'\n'
-    t.lexer.lineno += 1
+    r'\n+'
+    t.lexer.lineno += len(t.value)
+    t.value = len(t.value)
     return t
 
   return lex.lex()
@@ -225,18 +226,10 @@ def PkaParser():
     pass;
 
   def p_instruction_newline(p): #get rid of the newline between every pair of instructions
-    'instruction : instruction newlines'
+    'instruction : instruction NEWLINE'
     if(p[2] > 1):
       print()
     pass;
-
-  def p_newlines(p):
-    'newlines : newlines NEWLINE'
-    p[0] = p[1] + 1
-
-  def p_newlines_begin(p):
-    'newlines : NEWLINE'
-    p[0] = 1
 
   def p_instruction(p):
     '''instruction : esignature
@@ -257,6 +250,8 @@ def PkaParser():
 
   def p_info_newline(p):
     'info : info NEWLINE'
+    if(p[2] > 1):
+      print()
     pass;
 
   def p_info(p):
@@ -268,7 +263,7 @@ def PkaParser():
 
   def p_comment(p):
     'comment : COMMENT'
-    print("\n" + p[1])
+    print(p[1])
 
   def p_loc(p):
     'loc : LOC ID numberlist'
@@ -301,14 +296,18 @@ def PkaParser():
     matrixId = p[2][0]
     destList = p[2][1:]
     tupleList = []
+    newMR = []
     for i in range(0,len(mr)):
-      org = mr[i][0]
+      newMR.append(mr[i]["mrow"])
+      org = newMR[i][0]
       j = 1
       for dst in destList:
-        tupleList.append((org,dst,mr[i][j]))
+        tupleList.append((org,dst,newMR[i][j]))
         j += 1
     locationMatrices[matrixId] = tupleList
-    printLocationMatrix(matrixId, [p[2]] + p[4])
+    printLocationMatrix(matrixId, [p[2]] + newMR)
+    if (mr[i]["nlines"] > 1):
+      print()
 
   def p_initmatrix(p):
     '''initmatrix : LOCM
@@ -325,7 +324,9 @@ def PkaParser():
 
   def p_mrow(p):
     'mrow : ID numberlist NEWLINE'
-    p[0] = [p[1]] + p[2]
+    p[0] = {}
+    p[0]["nlines"] = p[3]
+    p[0]["mrow"] = [p[1]] + p[2]
 
   def p_numberlist(p):
     'numberlist : numberlist NUMBER'
@@ -339,7 +340,7 @@ def PkaParser():
     'esignature : ESIGNATURE ID agentsignature'
     global signatures
     signatures[p[3]["name"]] = p[3]["signature"]
-    print("# expanding in " + p[2], end="")
+    print("# expanding in " + p[2], end=" ")
     printSignature(p[3])
     expand(p[2], p[3], esignature)
 
@@ -814,6 +815,14 @@ def printObs(obs):
 def printObs2(obs):
   if (obs != nullInstruction):
     print("%obs: " + obs["label"] + " " + obs["algexp"])
+
+def printVar(var):
+  if (var != nullInstruction):
+    print("%var: " + var["label"] + " " + expressionToString(var["expression"]))
+
+def printVar2(var):
+  if (var != nullInstruction):
+    print("%var: " + var["label"] + " " + var["algexp"])
 
 def printPlot(plot):
   if (plot != nullInstruction):
@@ -1448,8 +1457,9 @@ def AlgExpLexer():
 
   # Define a rule so we can track line numbers
   def t_newline(t):
-      r'\n+'
-      t.lexer.lineno += len(t.value)
+    r'\n+'
+    t.lexer.lineno += len(t.value)
+    return t
 
   # A string containing ignored characters (spaces and tabs)
   #t_ignore  = ' \t'
@@ -1549,9 +1559,10 @@ def main():
       tok = lexer.token()
       if not tok: break
       print(tok.type, tok.value, tok.lineno, tok.lexpos)
+    PKA.seek(0)
 
   if (1):
-    print("# Created by expander.py")
+    print("# Created by expander.py\n")
     parser.parse(PKA.read(), lexer=lexer)
     #print(result)
 
