@@ -604,6 +604,7 @@ def PkaParser():
     init = {}
     init["quantity"] = p[2]
     init["expression"] = p[3]
+    init["expression"] = checkForChains(init["expression"])
     printInit(init)
 
   def p_eobs(p):
@@ -629,6 +630,7 @@ def PkaParser():
     obs = {}
     obs["label"] = p[2]
     obs["expression"] = p[3]
+    obs["expression"] = checkForChains(obs["expression"])
     printObs(obs)
 
   def p_obs_algexp(p):
@@ -661,6 +663,7 @@ def PkaParser():
     plot = {}
     plot["label"] = p[2]
     plot["expression"] = p[3]
+    plot["expression"] = checkForChains(plot["expression"])
     printPlot(plot)
 
   def p_plot_algexp(p):
@@ -693,6 +696,7 @@ def PkaParser():
     var = {}
     var["label"] = p[2]
     var["expression"] = p[3]
+    var["expression"] = checkForChains(var["expression"])
     printVar(var)
 
   def p_var_algexp(p):
@@ -772,6 +776,7 @@ def PkaParser():
     mod = {}
     mod["boolexp"] = p[3]
     mod["effect"] = p[5]
+    mod["effect"]["expression"] = checkForChains(mod["effect"]["expression"])
     mod["endexp"] = p[7]
     printMod(mod)
   
@@ -780,6 +785,7 @@ def PkaParser():
     mod = {}
     mod["boolexp"] = p[3]
     mod["effect"] = p[5]
+    mod["effect"]["expression"] = checkForChains(mod["effect"]["expression"])
     mod["endexp"] = ""
     printMod(mod)
 
@@ -1398,7 +1404,7 @@ def setLinkValue(interface, siteName, lValue):
 def findBond(left, right):
   for l in left["interface"]:
     for r in right["interface"]:
-      if (l["lstate"] == r["lstate"]):
+      if (l["lstate"] != "" and l["lstate"] != "!_" and l["lstate"] != "?" and l["lstate"] == r["lstate"]):
         return (r["name"], l["name"])
   print("Error in chain definition!, can't find prev and next sites", file=sys.stderr)
   sys.exit(3)
@@ -1406,6 +1412,9 @@ def findBond(left, right):
 def getLinkValue(agent, siteName):
   for site in agent["interface"]:
     if (site["name"] == siteName):
+      if (site["lstate"] == "" or site["lstate"] == "!_" or site["lstate"] == "?"):
+        print("Error, trying to get link value from a non-integer linking state", file=sys.stderr)
+        sys.exit(5)
       return int(site["lstate"][1:])
   print("Error, can't find siteName in getLinkValue function", file=sys.stderr)
   sys.exit(4)
