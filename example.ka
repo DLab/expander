@@ -1,9 +1,9 @@
 # Created by expander.py
 
 #Ciudades: name n1 n2 n3 ...
-# defined location a with data array = 100.0 10.0 5.0
-# defined location b with data array = 300.0 30.0 7.0
-# defined location c with data array = 900.0 90.0 9.0
+# defined location a with data array = 100 10 5 1
+# defined location b with data array = 300 30 7 2
+# defined location c with data array = 900 90 9 3
 
 #Listas de ciudades, utiles para expandir reglas en subconjuntos de ciudades
 # defined location list a-b containing: a,b
@@ -12,18 +12,18 @@
 #Matrices de adyacencia entre ciudades
 # defined location matrix DM:
 #	DM	a	b	c
-#	a	0.0	1.0	10.0
-#	c	8.0	3.0	0.0
-#	b	4.0	0.0	5.0
+#	a	0	1	10
+#	c	8	3	0
+#	b	4	0	5
 
 # defined location matrix TM:
 #	TM	a	b	c
-#	a	0.0	2.0	3.0
-#	b	2.0	0.0	5.0
-#	c	3.0	4.0	0.0
+#	a	0	2	3
+#	b	2	0	5
+#	c	3	4	0
 
-# expanding in a-b %agent: S(s~1~2,x)
-%agent: S(s~1~2,x,loc~a~b)
+# expanding in a-b %agent: S(s~1~2~3,x)
+%agent: S(s~1~2~3,x,loc~a~b)
 
 # expanding in all %agent: Z(x)
 %agent: Z(x,loc~a~b~c)
@@ -38,9 +38,9 @@
 %agent: R(r,s,t)
 
 # expanding in all 'fight(%loc)' S(s~1,x),Z(x) -> S(x!1),Z(x!1) @ [log] 'var%loc' * %loc[1]
-'fight(a)' S(s~1,x,loc~a),Z(x,loc~a) -> S(x!1,loc~a),Z(x!1,loc~a) @ [log] 'vara' * 10.0
-'fight(b)' S(s~1,x,loc~b),Z(x,loc~b) -> S(x!1,loc~b),Z(x!1,loc~b) @ [log] 'varb' * 30.0
-'fight(c)' S(s~1,x,loc~c),Z(x,loc~c) -> S(x!1,loc~c),Z(x!1,loc~c) @ [log] 'varc' * 90.0
+'fight(a)' S(s~1,x,loc~a),Z(x,loc~a) -> S(x!1,loc~a),Z(x!1,loc~a) @ [log] 'vara' * 10
+'fight(b)' S(s~1,x,loc~b),Z(x,loc~b) -> S(x!1,loc~b),Z(x!1,loc~b) @ [log] 'varb' * 30
+'fight(c)' S(s~1,x,loc~c),Z(x,loc~c) -> S(x!1,loc~c),Z(x!1,loc~c) @ [log] 'varc' * 90
 
 # expanding in a-b 'healing(%loc)' S(s~2,x!%loc[1]),Z(x!%loc[1]),Z() -> S(x),S(s~1,x),Z() @ 15.1
 'healing(a)' S(s~2,x!10,loc~a),Z(x!10,loc~a),Z(loc~a) -> S(x,loc~a),S(s~1,x,loc~a),Z(loc~a) @ 15.1
@@ -80,21 +80,22 @@
 'infecting(c)' S(loc~c),S(loc~c),S(loc~c),S(x!1,y!12,loc~c),V(p!1,n!2,t!51,loc~c),V(p!2,n!3,t!61,loc~c),V(p!3,n!4,t!71,loc~c),V(p!4,n!5,t!81,loc~c),V(p!5,n!6,t!91,loc~c),V(p!6,n!7,t!101,loc~c),V(p!7,n!8,t!111,loc~c),V(p!8,n!9,t!121,loc~c),V(p!9,n!10,t!131,loc~c),V(p!10,n!11,t!141,loc~c),V(p!11,n!12,loc~c),Z(loc~c),Z(loc~c) -> Z(loc~c) @ [inf]
 
 # expanding in DM 'diffusion(%org-%dst)' T(x),S(x) -> T(),S(%) @ '%orgdiffusion%dst' * %cell - %org[0] + %dst[1]
-'diffusion(a-b)' T(x,org~a,dst~b),S(x,loc~a) -> T(org~a,dst~b),S(loc~b) @ 'adiffusionb' * 1.0 - 100.0 + 30.0
-'diffusion(a-c)' T(x,org~a,dst~c),S(x,loc~a) -> T(org~a,dst~c),S(loc~c) @ 'adiffusionc' * 10.0 - 100.0 + 90.0
-'diffusion(c-a)' T(x,org~c,dst~a),S(x,loc~c) -> T(org~c,dst~a),S(loc~a) @ 'cdiffusiona' * 8.0 - 900.0 + 10.0
-'diffusion(c-b)' T(x,org~c,dst~b),S(x,loc~c) -> T(org~c,dst~b),S(loc~b) @ 'cdiffusionb' * 3.0 - 900.0 + 30.0
-'diffusion(b-a)' T(x,org~b,dst~a),S(x,loc~b) -> T(org~b,dst~a),S(loc~a) @ 'bdiffusiona' * 4.0 - 300.0 + 10.0
-'diffusion(b-c)' T(x,org~b,dst~c),S(x,loc~b) -> T(org~b,dst~c),S(loc~c) @ 'bdiffusionc' * 5.0 - 300.0 + 90.0
+'diffusion(a-b)' T(x,org~a,dst~b),S(x,loc~a) -> T(org~a,dst~b),S(loc~b) @ 'adiffusionb' * 1 - 100 + 30
+'diffusion(a-c)' T(x,org~a,dst~c),S(x,loc~a) -> T(org~a,dst~c),S(loc~c) @ 'adiffusionc' * 10 - 100 + 90
+'diffusion(c-a)' T(x,org~c,dst~a),S(x,loc~c) -> T(org~c,dst~a),S(loc~a) @ 'cdiffusiona' * 8 - 900 + 10
+'diffusion(c-b)' T(x,org~c,dst~b),S(x,loc~c) -> T(org~c,dst~b),S(loc~b) @ 'cdiffusionb' * 3 - 900 + 30
+'diffusion(b-a)' T(x,org~b,dst~a),S(x,loc~b) -> T(org~b,dst~a),S(loc~a) @ 'bdiffusiona' * 4 - 300 + 10
+'diffusion(b-c)' T(x,org~b,dst~c),S(x,loc~b) -> T(org~b,dst~c),S(loc~c) @ 'bdiffusionc' * 5 - 300 + 90
 
  S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
+'test-chain' V(n!1),V(p!1,n!2),V(p!2,n!3),V(p!3,n!4),V(p!4,n!5),V(p!5,n!6),V(p!6,n!7),V(p!7,n!8),V(p!8,n!9),V(p!9,n!10),V(p!10) ->  @ [inf]
 
 #in the case of identical density among locs: expand-init: locl density agent
-# expanding in all %init: 1000 (S(s~1,x),S())
+# expanding in all %init: 1000 (S(s~%loc[3],x),S())
 %init: 1000 (S(s~1,x,loc~a),S(loc~a))
-%init: 1000 (S(s~1,x,loc~b),S(loc~b))
-%init: 1000 (S(s~1,x,loc~c),S(loc~c))
+%init: 1000 (S(s~2,x,loc~b),S(loc~b))
+%init: 1000 (S(s~3,x,loc~c),S(loc~c))
 
 # expanding in TM %init: 4 * 5 - %cell T()
 %init: 18 T(org~a,dst~b)
@@ -112,6 +113,11 @@
 %obs: 'name(b)' Z(x,loc~b)
 %obs: 'name(c)' Z(x,loc~c)
 
+# expanding in all %obs: 'newvariable(%loc)' S(s~%loc[3],x)
+%obs: 'newvariable(a)' S(s~1,x,loc~a)
+%obs: 'newvariable(b)' S(s~2,x,loc~b)
+%obs: 'newvariable(c)' S(s~3,x,loc~c)
+
 # expanding in TM %obs: 'anotherName(%org,%dst)' T(x)
 %obs: 'anotherName(a,b)' T(x,org~a,dst~b)
 %obs: 'anotherName(a,c)' T(x,org~a,dst~c)
@@ -119,6 +125,14 @@
 %obs: 'anotherName(b,c)' T(x,org~b,dst~c)
 %obs: 'anotherName(c,a)' T(x,org~c,dst~a)
 %obs: 'anotherName(c,b)' T(x,org~c,dst~b)
+
+# expanding in TM %obs: 'anothernewvariable(%org,%dst)' T(x!%cell)
+%obs: 'anothernewvariable(a,b)' T(x!2,org~a,dst~b)
+%obs: 'anothernewvariable(a,c)' T(x!3,org~a,dst~c)
+%obs: 'anothernewvariable(b,a)' T(x!2,org~b,dst~a)
+%obs: 'anothernewvariable(b,c)' T(x!5,org~b,dst~c)
+%obs: 'anothernewvariable(c,a)' T(x!3,org~c,dst~a)
+%obs: 'anothernewvariable(c,b)' T(x!4,org~c,dst~b)
 
 # expanding in all %var: 'halfZ(%loc)' 'name(%loc)' / 2
 %var: 'halfZ(a)' 'name(a)' / 2
@@ -130,10 +144,10 @@
 %mod: ( [T] [mod] 10 = 0 ) do $ADD 1000 S(s~1,x,loc~b) until [T] < 10000
 %mod: ( [T] [mod] 10 = 0 ) do $ADD 1000 S(s~1,x,loc~c) until [T] < 10000
 
-# expanding in TM %mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(%org-%dst)' := 0
+# expanding in TM %mod: ( [log] [E] > %org[0] && [T] < 10000 ) do 'diffusion(%org-%dst)' := 0
 %mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(a-b)' := 0
 %mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(a-c)' := 0
-%mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(b-a)' := 0
-%mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(b-c)' := 0
-%mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(c-a)' := 0
-%mod: ( [log] [E] > 100 && [T] < 10000 ) do 'diffusion(c-b)' := 0
+%mod: ( [log] [E] > 300 && [T] < 10000 ) do 'diffusion(b-a)' := 0
+%mod: ( [log] [E] > 300 && [T] < 10000 ) do 'diffusion(b-c)' := 0
+%mod: ( [log] [E] > 900 && [T] < 10000 ) do 'diffusion(c-a)' := 0
+%mod: ( [log] [E] > 900 && [T] < 10000 ) do 'diffusion(c-b)' := 0

@@ -1,7 +1,7 @@
 #Ciudades: name n1 n2 n3 ...
-%loc: a 100 10 5
-%loc: b 300 30 7
-%loc: c 900 90 9
+%loc: a 100 10 5 1
+%loc: b 300 30 7 2
+%loc: c 900 90 9 3
 
 #Listas de ciudades, utiles para expandir reglas en subconjuntos de ciudades
 %locl: a-b a b
@@ -19,7 +19,7 @@
         b     2       0       5
         c     3       4       0
 
-%expand-agent: a-b S(s~1~2,x)
+%expand-agent: a-b S(s~1~2~3,x)
 
 %expand-agent: all Z(x)
 
@@ -49,9 +49,10 @@
 
 S(s~1) -> S(s~0) @ 1
 'wake-up' S(s~0) -> S(s~1) @ 1
+'test-chain' V(n!1),V(p!1,n!2),...,V(p!10) -> @ [inf]
 
 #in the case of identical density among locs: expand-init: locl density agent
-%expand-init: all 1000 S(s~1,x),S()
+%expand-init: all 1000 S(s~%loc[3],x),S()
 
 %expand-init: TM 4 * 5 - %cell T()
 
@@ -60,10 +61,14 @@ S(s~1) -> S(s~0) @ 1
 
 %expand-obs: all 'name(%loc)' Z(x)
 
+%expand-obs: all 'newvariable(%loc)' S(s~%loc[3],x)
+
 %expand-obs: TM 'anotherName(%org,%dst)' T(x)
+
+%expand-obs: TM 'anothernewvariable(%org,%dst)' T(x!%cell)
 
 %expand-var: all 'halfZ(%loc)' 'name(%loc)' / 2
 
 %expand-mod: all ([T] [mod] 10 = 0) do $ADD 1000 S(s~1,x) until [T] < 10000
 
-%expand-mod: TM ([log] [E] > 100 && [T] < 10000) do 'diffusion(%org-%dst)' := 0
+%expand-mod: TM ([log] [E] > %org[0] && [T] < 10000) do 'diffusion(%org-%dst)' := 0

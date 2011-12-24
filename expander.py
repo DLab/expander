@@ -33,7 +33,8 @@ pkaTokens = ['LOC',
              'MOD',
              'ID',
              'LABEL',
-             'NUMBER',
+             'INTEGER',
+             'FLOAT',
              'ISTATE',
              'LSTATE',
              'COMMA',
@@ -66,6 +67,7 @@ pkaTokens = ['LOC',
              'NOT',
              'COMMENT',
              'EXCLAMATION',
+             'TILDE',
              'NEWLINE',
              'BACKSLASHNEWLINE',
              ]
@@ -116,6 +118,7 @@ def PkaLexer():
   t_BOOL = r'[true]|[false]'
   t_COMMENT = r'\#.+'
   t_EXCLAMATION = r'!'
+  t_TILDE = r'~'
 
   def t_DO(t):
     r'do'
@@ -125,8 +128,12 @@ def PkaLexer():
     r'until'
     return t
 
-  def t_NUMBER(t):
-    r'(\d+\.\d*|\d*\.\d+|\d+)([Ee][\+-]?\d+)|(\d+\.\d*|\d*\.\d+|\d+)'
+  def t_FLOAT(t):
+    r'(\d+\.\d*|\d*\.\d+)([Ee][\+-]?\d+)|(\d+\.\d*|\d*\.\d+)'
+    return t
+
+  def t_INTEGER(t):
+    r'(\d+)([Ee][\+-]?\d+)|\d+'
     return t
     
   def t_RARROW(t):
@@ -271,7 +278,7 @@ def PkaParser():
     if locations.__contains__(p[2]):
       sys.stderr.write("Warning!, location " + p[2] + " redefined\n")
     locations[p[2]] = []
-    for i in map(float,p[3]):
+    for i in p[3]:
       locations[p[2]].append(i)
     printLocation(p[2], p[3])
 
@@ -329,12 +336,20 @@ def PkaParser():
     p[0]["mrow"] = [p[1]] + p[2]
 
   def p_numberlist(p):
-    'numberlist : numberlist NUMBER'
-    p[0] = p[1] + [float(p[2])]
+    'numberlist : numberlist number'
+    p[0] = p[1] + [(p[2])]
 
   def p_numberlist_begin(p):
-    'numberlist : NUMBER'
-    p[0] = [float(p[1])]
+    'numberlist : number'
+    p[0] = [(p[1])]
+
+  def p_number_integer(p):
+    'number : INTEGER'
+    p[0] = int(p[1])
+  
+  def p_number_float(p):
+    'number : FLOAT'
+    p[0] = float(p[1])
 
   def p_esignature(p):
     'esignature : ESIGNATURE ID agentsignature'
@@ -445,7 +460,8 @@ def PkaParser():
     p[0] = p[1] + " " + p[2]
 
   def p_algexp_init(p):
-    '''algexp : NUMBER
+    '''algexp : INTEGER
+              | FLOAT
               | PI
               | INFINITY
               | EMAX
@@ -506,7 +522,7 @@ def PkaParser():
     p[0] = site
 
   def p_site_istate(p):
-    'site : ID ISTATE'
+    'site : ID istate'
     site = {}
     site["name"] = p[1]
     site["istate"] = p[2]
@@ -528,6 +544,14 @@ def PkaParser():
   def p_lstate_algexp(p):
     'lstate : EXCLAMATION algexp'
     p[0] = p[1] + p[2]
+  
+  def p_istate(p):
+    'istate : ISTATE'
+    p[0] = p[1]
+
+  def p_istate_algexp(p):
+    'istate : TILDE algexp'
+    p[0] = p[1] + p[2]
 
   def p_site_lstate(p):
     'site : ID lstate'
@@ -538,7 +562,7 @@ def PkaParser():
     p[0] = site
 
   def p_site_istate_lstate(p):
-    'site : ID ISTATE lstate'
+    'site : ID istate lstate'
     site = {}
     site["name"] = p[1]
     site["istate"] = p[2]
@@ -546,7 +570,7 @@ def PkaParser():
     p[0] = site
   
   def p_site_lstate_istate(p):
-    'site : ID lstate ISTATE'
+    'site : ID lstate istate'
     site = {}
     site["name"] = p[1]
     site["lstate"] = p[2]
@@ -556,6 +580,9 @@ def PkaParser():
   def p_rule(p):
     'rule : LABEL reaction'
     p[2]["label"] = p[1]
+    reaction = p[2]
+    reaction["lhs"] = checkForChains(reaction["lhs"])
+    reaction["rhs"] = checkForChains(reaction["rhs"])
     printRule(p[2])
 
   def p_rule_no_label(p):
@@ -573,7 +600,7 @@ def PkaParser():
     expand(p[2], init, einit)
 
   def p_init(p):
-    'init : INIT NUMBER expression'
+    'init : INIT number expression'
     init = {}
     init["quantity"] = p[2]
     init["expression"] = p[3]
@@ -806,7 +833,7 @@ def printInit(init):
     e = expressionToString(init["expression"])
     if (len(init["expression"]) > 1):
       e = "(" + e + ")"
-    print("%init: " + init["quantity"] + " " + e)
+    print("%init: " + str(init["quantity"]) + " " + e)
 
 def printObs(obs):
   if (obs != nullInstruction):
@@ -976,18 +1003,6 @@ def diffuseAgent(interface, dst):
     i += 1
   interface.pop(p)
 
-def replaceLocVariable(algexp, vname, dataArray):
-  splittedStr = algexp.split(" ")
-  for i in range(len(splittedStr)):
-    if re.match(vname + "\[\d+\]", splittedStr[i]):
-      index = int(re.findall("\d+", splittedStr[i])[-1])
-      if index < len(dataArray):
-        splittedStr[i] = str(dataArray[index])
-      else:
-        print("Error replacing Loc variable", file=sys.stderr)
-        sys.exit(1)
-  return " ".join(splittedStr)
-
 def joinInAList(e1, e2):
   return (e1,e2)
 
@@ -997,19 +1012,24 @@ def solveAlgebraicExpressions(expression):
       if site["lstate"] != "" and site["lstate"] != "!_" and site["lstate"] != "?":
         site["lstate"] = "!" + str(int(aeParser.parse(site["lstate"][1:],lexer=aeLexer)))
 
+def substituteDataArrayElementInString(vname, s, dataArray):
+  for variable in re.findall(vname + "\[\d+\]", s):
+    index = int(re.findall("\d+", variable)[0])
+    if index < len(dataArray):
+      s = s.replace(variable, str(dataArray[index]))
+    else:
+      print("Error replacing " + vname + "[" + str(index) + "] variable in a expression", file=sys.stderr)
+      sys.exit(2)
+  return s
+
 def checkForAlgebraicExpressions(expression, vnames, dataArrays, cellValue):
   for agent in expression:
     for site in agent["interface"]:
       for (vname,dataArray) in map(joinInAList, vnames, dataArrays):
-        for variable in re.findall(vname + "\[\d+\]", site["lstate"]):
-          index = int(re.findall("\d+", variable)[0])
-          if index < len(dataArray):
-            site["lstate"] = site["lstate"].replace(variable, str(dataArray[index]))
-          else:
-            print("Error replacing " + vname + "[" + str(index) + "] variable in a expression", file=sys.stderr)
-            sys.exit(2)
-      for variable in re.findall("%cell", site["lstate"]):
-        site["lstate"] = site["lstate"].replace(variable, str(cellValue))
+        site["lstate"] = substituteDataArrayElementInString(vname, site["lstate"], dataArray)
+        site["istate"] = substituteDataArrayElementInString(vname, site["istate"], dataArray)
+      site["lstate"] = site["lstate"].replace("%cell", str(cellValue))
+      site["istate"] = site["istate"].replace("%cell", str(cellValue))
 
 def checkForChains(expression):
   newExpression = []
@@ -1047,7 +1067,7 @@ def erule(rule, domain):
     newRule["rhs"] = checkForChains(newRule["rhs"])
     insertLocInExpression(newRule["lhs"],loc)
     insertLocInExpression(newRule["rhs"],loc)
-    newRule["rate"] = replaceLocVariable(newRule["rate"], "%loc", locations[loc])
+    newRule["rate"] = substituteDataArrayElementInString("%loc", newRule["rate"], locations[loc])
     newRule["rate"] = newRule["rate"].replace("%loc", loc)
     #if (isBimol(rule["lhs"])):
     #  newRule["rate"] = encloseAndSuffix(newRule["rate"], "/ " + str(locations[loc]))
@@ -1069,8 +1089,8 @@ def erule(rule, domain):
       insertOrgInExpression(newRule["rhs"],org)
       insertDstInExpression(newRule["lhs"],dst)
       insertDstInExpression(newRule["rhs"],dst)
-      newRule["rate"] = replaceLocVariable(newRule["rate"], "%org", locations[org])
-      newRule["rate"] = replaceLocVariable(newRule["rate"], "%dst", locations[dst])
+      newRule["rate"] = substituteDataArrayElementInString("%org", newRule["rate"], locations[org])
+      newRule["rate"] = substituteDataArrayElementInString("%dst", newRule["rate"], locations[dst])
       newRule["rate"] = newRule["rate"].replace("%cell", str(r))
       newRule["rate"] = newRule["rate"].replace("%org", org)
       newRule["rate"] = newRule["rate"].replace("%dst", dst)
@@ -1092,8 +1112,11 @@ def erule(rule, domain):
 def einit(init, domain):
   def mixInitWithLoc(loc):
     newInit = copy.deepcopy(init)
+    checkForAlgebraicExpressions(newInit["expression"],["%loc"],[locations[loc]],str(0))
+    solveAlgebraicExpressions(newInit["expression"])
+    newInit["expression"] = checkForChains(newInit["expression"])
     insertLocInExpression(newInit["expression"], loc)
-    newInit["quantity"] = replaceLocVariable(newInit["quantity"], "%loc", locations[loc])
+    newInit["quantity"] = substituteDataArrayElementInString("%loc", newInit["quantity"], locations[loc])
     newInit["quantity"] = str(int(aeParser.parse(newInit["quantity"],lexer=aeLexer)))
     return newInit
   
@@ -1101,10 +1124,13 @@ def einit(init, domain):
     (org, dst, r) = matrixCell
     if (org != dst):
       newInit = copy.deepcopy(init)
+      checkForAlgebraicExpressions(newInit["expression"],["%org","%dst"],[locations[org],locations[dst]],str(r))
+      solveAlgebraicExpressions(newInit["expression"])
+      newInit["expression"] = checkForChains(newInit["expression"])
       insertOrgInExpression(newInit["expression"],org)
       insertDstInExpression(newInit["expression"],dst)
-      newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%org",locations[org])
-      newInit["quantity"] = replaceLocVariable(newInit["quantity"],"%dst",locations[dst])
+      newInit["quantity"] = substituteDataArrayElementInString("%org", newInit["quantity"], locations[org])
+      newInit["quantity"] = substituteDataArrayElementInString("%dst", newInit["quantity"], locations[dst])
       newInit["quantity"] = newInit["quantity"].replace("%cell", str(r))
       newInit["quantity"] = str(int(aeParser.parse(newInit["quantity"],lexer=aeLexer)))
       return newInit
@@ -1123,6 +1149,9 @@ def eobs(obs, domain):
   def mixObsWithLoc(loc):
     newObs = copy.deepcopy(obs)
     newObs["label"] = newObs["label"].replace("%loc",loc)
+    checkForAlgebraicExpressions(newObs["expression"],["%loc"],[locations[loc]],str(0))
+    solveAlgebraicExpressions(newObs["expression"])
+    newObs["expression"] = checkForChains(newObs["expression"])
     insertLocInExpression(newObs["expression"],loc)
     return newObs
   
@@ -1132,6 +1161,9 @@ def eobs(obs, domain):
       newObs = copy.deepcopy(obs)
       newObs["label"] = newObs["label"].replace("%org",org)
       newObs["label"] = newObs["label"].replace("%dst",dst)
+      checkForAlgebraicExpressions(newObs["expression"],["%org","%dst"],[locations[org],locations[dst]],str(r))
+      solveAlgebraicExpressions(newObs["expression"])
+      newObs["expression"] = checkForChains(newObs["expression"])
       insertOrgInExpression(newObs["expression"],org)
       insertDstInExpression(newObs["expression"],dst)
       return newObs
@@ -1150,6 +1182,7 @@ def eobs2(obs, domain):
   def mixObsWithLoc(loc):
     newObs = copy.deepcopy(obs)
     newObs["label"] = newObs["label"].replace("%loc",loc)
+    newObs["algexp"] = substituteDataArrayElementInString("%loc", newObs["algexp"], locations[loc])
     newObs["algexp"] = newObs["algexp"].replace("%loc",loc)
     return newObs
   
@@ -1159,6 +1192,9 @@ def eobs2(obs, domain):
       newObs = copy.deepcopy(obs)
       newObs["label"] = newObs["label"].replace("%org",org)
       newObs["label"] = newObs["label"].replace("%dst",dst)
+      newObs["algexp"] = substituteDataArrayElementInString("%org", newObs["algexp"], locations[org])
+      newObs["algexp"] = substituteDataArrayElementInString("%dst", newObs["algexp"], locations[dst])
+      newObs["algexp"] = newObs["algexp"].replace("%cell", str(r))
       newObs["algexp"] = newObs["algexp"].replace("%org",org)
       newObs["algexp"] = newObs["algexp"].replace("%dst",dst)
       return newObs
@@ -1177,6 +1213,9 @@ def eplot(plot, domain):
   def mixPlotWithLoc(loc):
     newPlot = copy.deepcopy(plot)
     newPlot["label"] = newPlot["label"].replace("%loc",loc)
+    checkForAlgebraicExpressions(newPlot["expression"],["%loc"],[locations[loc]],str(0))
+    solveAlgebraicExpressions(newPlot["expression"])
+    newPlot["expression"] = checkForChains(newPlot["expression"])
     insertLocInExpression(newPlot["expression"],loc)
     return newPlot
   
@@ -1186,6 +1225,9 @@ def eplot(plot, domain):
       newPlot = copy.deepcopy(plot)
       newPlot["label"] = newPlot["label"].replace("%org",org)
       newPlot["label"] = newPlot["label"].replace("%dst",dst)
+      checkForAlgebraicExpressions(newPlot["expression"],["%org","%dst"],[locations[org],locations[dst]],str(r))
+      solveAlgebraicExpressions(newPlot["expression"])
+      newPlot["expression"] = checkForChains(newPlot["expression"])
       insertOrgInExpression(newPlot["expression"],org)
       insertDstInExpression(newPlot["expression"],dst)
       return newPlot
@@ -1204,6 +1246,7 @@ def eplot2(plot, domain):
   def mixPlotWithLoc(loc):
     newPlot = copy.deepcopy(plot)
     newPlot["label"] = newPlot["label"].replace("%loc",loc)
+    newPlot["algexp"] = substituteDataArrayElementInString("%loc", newPlot["algexp"], locations[loc])
     newPlot["algexp"] = newPlot["algexp"].replace("%loc",loc)
     return newPlot
   
@@ -1213,6 +1256,9 @@ def eplot2(plot, domain):
       newPlot = copy.deepcopy(plot)
       newPlot["label"] = newPlot["label"].replace("%org",org)
       newPlot["label"] = newPlot["label"].replace("%dst",dst)
+      newPlot["algexp"] = substituteDataArrayElementInString("%org", newPlot["algexp"], locations[org])
+      newPlot["algexp"] = substituteDataArrayElementInString("%dst", newPlot["algexp"], locations[dst])
+      newPlot["algexp"] = newPlot["algexp"].replace("%cell", str(r))
       newPlot["algexp"] = newPlot["algexp"].replace("%org",org)
       newPlot["algexp"] = newPlot["algexp"].replace("%dst",dst)
       return newPlot
@@ -1231,6 +1277,9 @@ def evar(var, domain):
   def mixVarWithLoc(loc):
     newVar = copy.deepcopy(var)
     newVar["label"] = newVar["label"].replace("%loc",loc)
+    checkForAlgebraicExpressions(newVar["expression"],["%loc"],[locations[loc]],str(0))
+    solveAlgebraicExpressions(newVar["expression"])
+    newVar["expression"] = checkForChains(newVar["expression"])
     insertLocInExpression(newVar["expression"],loc)
     return newVar
   
@@ -1240,6 +1289,9 @@ def evar(var, domain):
       newVar = copy.deepcopy(var)
       newVar["label"] = newVar["label"].replace("%org",org)
       newVar["label"] = newVar["label"].replace("%dst",dst)
+      checkForAlgebraicExpressions(newVar["expression"],["%org","%dst"],[locations[org],locations[dst]],str(r))
+      solveAlgebraicExpressions(newVar["expression"])
+      newVar["expression"] = checkForChains(newVar["expression"])
       insertOrgInExpression(newVar["expression"],org)
       insertDstInExpression(newVar["expression"],dst)
       return newVar
@@ -1258,6 +1310,7 @@ def evar2(var, domain):
   def mixVarWithLoc(loc):
     newVar = copy.deepcopy(var)
     newVar["label"] = newVar["label"].replace("%loc",loc)
+    newVar["algexp"] = substituteDataArrayElementInString("%loc", newVar["algexp"], locations[loc])
     newVar["algexp"] = newVar["algexp"].replace("%loc",loc)
     return newVar
   
@@ -1267,6 +1320,9 @@ def evar2(var, domain):
       newVar = copy.deepcopy(var)
       newVar["label"] = newVar["label"].replace("%org",org)
       newVar["label"] = newVar["label"].replace("%dst",dst)
+      newVar["algexp"] = substituteDataArrayElementInString("%org", newVar["algexp"], locations[org])
+      newVar["algexp"] = substituteDataArrayElementInString("%dst", newVar["algexp"], locations[dst])
+      newVar["algexp"] = newVar["algexp"].replace("%cell", str(r))
       newVar["algexp"] = newVar["algexp"].replace("%org",org)
       newVar["algexp"] = newVar["algexp"].replace("%dst",dst)
       return newVar
@@ -1284,10 +1340,10 @@ def evar2(var, domain):
 def emod(mod, domain):
   def mixModWithLoc(loc):
     newMod = copy.deepcopy(mod)
-    #newMod["boolexp"] = newMod["boolexp"].replace("%loc",loc)
-    #newMod["endexp"] = newMod["endexp"].replace("%loc",loc)
-    newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%loc",locations[loc])
-    newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%loc",locations[loc])
+    newMod["boolexp"] = substituteDataArrayElementInString("%loc", newMod["boolexp"], locations[loc])
+    newMod["endexp"] = substituteDataArrayElementInString("%loc", newMod["endexp"], locations[loc])
+    newMod["boolexp"] = newMod["boolexp"].replace("%loc",loc)
+    newMod["endexp"] = newMod["endexp"].replace("%loc",loc)
     insertLocInEffect(newMod["effect"],loc)
     return newMod
   
@@ -1295,16 +1351,16 @@ def emod(mod, domain):
     (org, dst, r) = matrixCell
     if (org != dst):
       newMod = copy.deepcopy(mod)
-      #newMod["boolexp"] = newMod["boolexp"].replace("%org",org)
-      #newMod["boolexp"] = newMod["boolexp"].replace("%dst",dst)
-      #newMod["endexp"] = newMod["endexp"].replace("%org",org)
-      #newMod["endexp"] = newMod["endexp"].replace("%dst",dst)
-      newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%org",locations[org])
-      newMod["boolexp"] = replaceLocVariable(newMod["boolexp"],"%dst",locations[dst])
+      newMod["boolexp"] = substituteDataArrayElementInString("%org", newMod["boolexp"], locations[org])
+      newMod["boolexp"] = substituteDataArrayElementInString("%dst", newMod["boolexp"], locations[dst])
       newMod["boolexp"] = newMod["boolexp"].replace("%cell",str(r))
-      newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%org",locations[org])
-      newMod["endexp"] = replaceLocVariable(newMod["endexp"],"%dst",locations[dst])
+      newMod["endexp"] = substituteDataArrayElementInString("%org", newMod["endexp"], locations[org])
+      newMod["endexp"] = substituteDataArrayElementInString("%dst", newMod["endexp"], locations[dst])
       newMod["endexp"] = newMod["endexp"].replace("%cell",str(r))
+      newMod["boolexp"] = newMod["boolexp"].replace("%org",org)
+      newMod["boolexp"] = newMod["boolexp"].replace("%dst",dst)
+      newMod["endexp"] = newMod["endexp"].replace("%org",org)
+      newMod["endexp"] = newMod["endexp"].replace("%dst",dst)
       insertOrgInEffect(newMod["effect"],org)
       insertDstInEffect(newMod["effect"],dst)
       return newMod
