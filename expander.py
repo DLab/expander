@@ -223,6 +223,7 @@ def PkaParser():
   precedence = (
     ('left', 'COMMA'),
     ('right', 'ID'),
+    ('right', 'DO', 'UNTIL'),
   )
 
   def p_prekappa(p):
@@ -771,24 +772,24 @@ def PkaParser():
     effect["rate"] = p[3]
     p[0] = effect
 
-  def p_mod(p):
-    'mod : MOD boolexp DO effect UNTIL boolexp'
-    mod = {}
-    mod["boolexp"] = p[3]
-    mod["effect"] = p[5]
-    mod["effect"]["expression"] = checkForChains(mod["effect"]["expression"])
-    mod["endexp"] = p[7]
-    printMod(mod)
-  
   def p_mod_noend(p):
-    'mod : MOD ID boolexp DO effect'
+    'mod : MOD boolexp DO effect'
     mod = {}
-    mod["boolexp"] = p[3]
-    mod["effect"] = p[5]
+    mod["boolexp"] = p[2]
+    mod["effect"] = p[4]
     mod["effect"]["expression"] = checkForChains(mod["effect"]["expression"])
     mod["endexp"] = ""
     printMod(mod)
 
+  def p_mod(p):
+    'mod : MOD boolexp DO effect UNTIL boolexp'
+    mod = {}
+    mod["boolexp"] = p[2]
+    mod["effect"] = p[4]
+    mod["effect"]["expression"] = checkForChains(mod["effect"]["expression"])
+    mod["endexp"] = p[6]
+    printMod(mod)
+  
   return yacc.yacc()
 
 def printLocation(name, dataArray):
