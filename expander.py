@@ -8,6 +8,7 @@ import functools
 import copy
 import math
 import re
+from optparse import OptionParser
 
 locations = collections.OrderedDict()
 locationLists = {}
@@ -705,7 +706,7 @@ def PkaParser():
     var = {}
     var["label"] = p[2]
     var["algexp"] = p[3]
-    printObs2(var)
+    printVar2(var)
 
   def p_emod(p):
     'emod : EMOD ID boolexp DO effect UNTIL boolexp'
@@ -1082,6 +1083,8 @@ def erule(rule, domain):
   
   def mixRuleWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newRule = copy.deepcopy(rule)
       newRule["label"] = newRule["label"].replace("%org",org)
@@ -1129,6 +1132,8 @@ def einit(init, domain):
   
   def mixInitWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newInit = copy.deepcopy(init)
       checkForAlgebraicExpressions(newInit["expression"],["%org","%dst"],[locations[org],locations[dst]],str(r))
@@ -1164,6 +1169,8 @@ def eobs(obs, domain):
   
   def mixObsWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newObs = copy.deepcopy(obs)
       newObs["label"] = newObs["label"].replace("%org",org)
@@ -1195,6 +1202,8 @@ def eobs2(obs, domain):
   
   def mixObsWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newObs = copy.deepcopy(obs)
       newObs["label"] = newObs["label"].replace("%org",org)
@@ -1228,6 +1237,8 @@ def eplot(plot, domain):
   
   def mixPlotWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newPlot = copy.deepcopy(plot)
       newPlot["label"] = newPlot["label"].replace("%org",org)
@@ -1259,6 +1270,8 @@ def eplot2(plot, domain):
   
   def mixPlotWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newPlot = copy.deepcopy(plot)
       newPlot["label"] = newPlot["label"].replace("%org",org)
@@ -1292,6 +1305,8 @@ def evar(var, domain):
   
   def mixVarWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newVar = copy.deepcopy(var)
       newVar["label"] = newVar["label"].replace("%org",org)
@@ -1323,6 +1338,8 @@ def evar2(var, domain):
   
   def mixVarWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newVar = copy.deepcopy(var)
       newVar["label"] = newVar["label"].replace("%org",org)
@@ -1356,6 +1373,8 @@ def emod(mod, domain):
   
   def mixModWithOrgDst(matrixCell):
     (org, dst, r) = matrixCell
+    if (options.fullMatrix == False and r == 0):
+      return nullInstruction
     if (org != dst):
       newMod = copy.deepcopy(mod)
       newMod["boolexp"] = substituteDataArrayElementInString("%org", newMod["boolexp"], locations[org])
@@ -1600,12 +1619,12 @@ def AlgExpParser():
   return yacc.yacc()
 
 def usage():
-  print("Usage: prekappa.py prekappa_file", file=sys.stderr)
+  print("Usage: expander.py [options] prekappa_file\n\nFor more info, please type expander.py -h", file=sys.stderr)
   sys.exit(0)
 
 def main():
-  if (len(sys.argv) == 2):
-    filename = sys.argv[1]
+  if (len(args) == 1):
+    filename = args[0]
   else:
     usage()
 
@@ -1634,4 +1653,8 @@ def main():
 
 aeLexer = AlgExpLexer()
 aeParser = AlgExpParser()
+parser = OptionParser(usage="usage: expander.py [options] prekappa_file")
+parser.add_option("-f","--full-matrix",dest="fullMatrix",action="store_true",
+                  default=False,help="expand whole matrices, no matter the values in their cells")
+(options,args) = parser.parse_args()
 main()
