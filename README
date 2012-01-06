@@ -1,3 +1,6 @@
+INSTRUCTION:
+copy all files under bin directory in your local bin directory.
+
 The expander.py script has the following requirements:
 
 - python 3.0 or above
